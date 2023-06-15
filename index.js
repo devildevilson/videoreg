@@ -62,115 +62,130 @@ let xlsx_data = [
 
   // надо сделать так чтобы среди всех производителей АПИ был максимально одинаковым + указать какой тип камеры
 
-  let unique_device = new Set();
-  let dahua_promises = [];
-  let hikvision_promises = [];
-  let url_data = [];
-  for (const dev of cams_list.cameras) {
-    const dev_url = new URL(dev.url);
-    if (unique_device.has(dev_url.hostname)) continue;
-    unique_device.add(dev_url.hostname);
+  {
+    const dev_url = new URL(cams_list.cameras[0].url);
+    const device = new dahua({
+      host: dev_url.hostname,
+      port: 80,
+      user: dev_url.username,
+      pass: dev_url.password
+    });
 
-    const code1_promise = device_is_dahua(dev_url);
-    const code2_promise = device_is_hikvision(dev_url);
-    dahua_promises.push(code1_promise);
-    hikvision_promises.push(code2_promise);
-    url_data.push({ dev_url, name: dev.name });
+    const ret1 = await device.get_channel_title();
+    //const ret2 = await device.get_system_info();
+    console.log(ret1.data);
+    //console.log(ret2.data);
   }
 
-  const dahua_codes = await Promise.all(dahua_promises);
-  const hikvision_codes = await Promise.all(hikvision_promises);
-  //assert(dahua_codes.length === hikvision_codes.length);
-  console.log(dahua_codes.length);
+  // let unique_device = new Set();
+  // let dahua_promises = [];
+  // let hikvision_promises = [];
+  // let url_data = [];
+  // for (const dev of cams_list.cameras) {
+  //   const dev_url = new URL(dev.url);
+  //   if (unique_device.has(dev_url.hostname)) continue;
+  //   unique_device.add(dev_url.hostname);
 
-  let dahua_counter = 0;
-  let hikvision_counter = 0;
-  let dev_types = [];
-  for (let i = 0; i < dahua_codes.length; ++i) {
-    const { dev_url, name } = url_data[i];
-    const obj_num = name.split("_")[0];
+  //   const code1_promise = device_is_dahua(dev_url);
+  //   const code2_promise = device_is_hikvision(dev_url);
+  //   dahua_promises.push(code1_promise);
+  //   hikvision_promises.push(code2_promise);
+  //   url_data.push({ dev_url, name: dev.name });
+  // }
 
-    if (dahua_codes[i].status.code === 200) {
-      dev_types.push({
-        device: new dahua({
-          host: dev_url.hostname,
-          port: 80,
-          user: dev_url.username,
-          pass: dev_url.password
-        }),
-        type: "dahua",
-        data: dahua_codes[i].data,
-        name: obj_num
-      });
+  // const dahua_codes = await Promise.all(dahua_promises);
+  // const hikvision_codes = await Promise.all(hikvision_promises);
+  // //assert(dahua_codes.length === hikvision_codes.length);
+  // console.log(dahua_codes.length);
 
-      dahua_counter += 1;
-      continue;
-    }
+  // let dahua_counter = 0;
+  // let hikvision_counter = 0;
+  // let dev_types = [];
+  // for (let i = 0; i < dahua_codes.length; ++i) {
+  //   const { dev_url, name } = url_data[i];
+  //   const obj_num = name.split("_")[0];
 
-    if (hikvision_codes[i].status.code === 200) {
-      dev_types.push({
-        device: new hikvision({
-          host: dev_url.hostname,
-          port: 80,
-          user: dev_url.username,
-          pass: dev_url.password
-        }),
-        type: "hikvision",
-        data: hikvision_codes[i].data,
-        name: obj_num
-      });
+  //   if (dahua_codes[i].status.code === 200) {
+  //     dev_types.push({
+  //       device: new dahua({
+  //         host: dev_url.hostname,
+  //         port: 80,
+  //         user: dev_url.username,
+  //         pass: dev_url.password
+  //       }),
+  //       type: "dahua",
+  //       data: dahua_codes[i].data,
+  //       name: obj_num
+  //     });
 
-      hikvision_counter += 1;
-      continue;
-    }
+  //     dahua_counter += 1;
+  //     continue;
+  //   }
 
-    const dahua_str_code = `${dahua_codes[i].status.code} ${dahua_codes[i].status.desc}`;
-    const hikvision_str_code = `${hikvision_codes[i].status.code} ${hikvision_codes[i].status.desc}`;
-    xlsx_data.push([ obj_num, dev_url.hostname, dahua_str_code, hikvision_str_code, "" ]);
-  }
+  //   if (hikvision_codes[i].status.code === 200) {
+  //     dev_types.push({
+  //       device: new hikvision({
+  //         host: dev_url.hostname,
+  //         port: 80,
+  //         user: dev_url.username,
+  //         pass: dev_url.password
+  //       }),
+  //       type: "hikvision",
+  //       data: hikvision_codes[i].data,
+  //       name: obj_num
+  //     });
 
-  console.log(`Responded dahua     devices ${dahua_counter}`);
-  console.log(`Responded hikvision devices ${hikvision_counter}`);
+  //     hikvision_counter += 1;
+  //     continue;
+  //   }
 
-  for (let i = 0; i < dev_types.length; ++i) {
-    const obj = dev_types[i];
-    if (obj.type === "dahua") {
-      const klass = await obj.device.get_device_class();
-      const type = await obj.device.get_device_type();
+  //   const dahua_str_code = `${dahua_codes[i].status.code} ${dahua_codes[i].status.desc}`;
+  //   const hikvision_str_code = `${hikvision_codes[i].status.code} ${hikvision_codes[i].status.desc}`;
+  //   xlsx_data.push([ obj_num, dev_url.hostname, dahua_str_code, hikvision_str_code, "" ]);
+  // }
 
-      if (!type.data) {
-        console.log(type.status);
-        throw "Dahua type error";
-      }
+  // console.log(`Responded dahua     devices ${dahua_counter}`);
+  // console.log(`Responded hikvision devices ${hikvision_counter}`);
 
-      if (!klass.data) {
-        console.log(klass.status);
-        throw "Dahua klass error";
-      }
+  // for (let i = 0; i < dev_types.length; ++i) {
+  //   const obj = dev_types[i];
+  //   if (obj.type === "dahua") {
+  //     const klass = await obj.device.get_device_class();
+  //     const type = await obj.device.get_device_type();
 
-      xlsx_data.push([ obj.name, obj.device.host(), klass.data, type.data, "dahua" ]);
-      continue;
-    }
+  //     if (!type.data) {
+  //       console.log(type.status);
+  //       throw "Dahua type error";
+  //     }
 
-    if (obj.type === "hikvision") {
-      //const { data, status } = await obj.device.system_device_info();
-      // if (!data) {
-      //   console.log(status);
-      //   throw "Hikvision error";
-      // }
+  //     if (!klass.data) {
+  //       console.log(klass.status);
+  //       throw "Dahua klass error";
+  //     }
 
-      xlsx_data.push([ obj.name, obj.device.host(), obj.data.deviceType, obj.data.model, "hikvision" ]);
-      continue;
-    }
-  }
+  //     xlsx_data.push([ obj.name, obj.device.host(), klass.data, type.data, "dahua" ]);
+  //     continue;
+  //   }
 
-  const date_str = make_current_day_str();
-  const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
-  console.log(`Writing ${xlsx_data.length} rows`);
-  fs.writeFile(`cam_data_${date_str}.xlsx`, buffer, err => {
-    if (err) { console.error(err); return; }
-    console.log(`Success computing`);
-  });
+  //   if (obj.type === "hikvision") {
+  //     //const { data, status } = await obj.device.system_device_info();
+  //     // if (!data) {
+  //     //   console.log(status);
+  //     //   throw "Hikvision error";
+  //     // }
+
+  //     xlsx_data.push([ obj.name, obj.device.host(), obj.data.deviceType, obj.data.model, "hikvision" ]);
+  //     continue;
+  //   }
+  // }
+
+  // const date_str = make_current_day_str();
+  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
+  // console.log(`Writing ${xlsx_data.length} rows`);
+  // fs.writeFile(`cam_data_${date_str}.xlsx`, buffer, err => {
+  //   if (err) { console.error(err); return; }
+  //   console.log(`Success computing`);
+  // });
 })();
 
 // так что теперь? мы получаем список камер из ЕГСВ и пытаемся понять что перед нами: камера или рег?

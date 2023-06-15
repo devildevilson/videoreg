@@ -24,6 +24,67 @@ function several_lines_simple_resp(str) {
   return ret;
 }
 
+// по идее это обобщенная функция, которая может обработать любой вывод из дахуа камер
+function parse_output(str) {
+  let ret = {};
+  const lines = str.split("\r\n");
+  if (lines.length === 1) return single_line_resp(str);
+
+  for (const line of lines) {
+    const fin_line = line.trim();
+    if (fin_line === "") continue;
+
+    //console.log(fin_line);
+    let parts = fin_line.split("=");
+    const path = parts.shift();
+    const data = parts.join("=");
+    const dots = path.split(".");
+    let last_key = "";
+    let prev = undefined;
+    let cur = ret;
+    for (let i = 0; i < dots.length; ++i) {
+      const fin_key = dots[i].trim();
+      if (fin_key === "") continue;
+
+      //console.log(fin_key);
+      const last_key = i === dots.length-1;
+      const index_open = fin_key.indexOf("[");
+      if (index_open < 0) {
+        if (!cur[fin_key]) last_key ? cur[fin_key] = data : cur[fin_key] = {};
+        prev = cur;
+        cur = cur[fin_key];
+        //console.log(ret);
+        continue;
+      }
+
+      const index_close = fin_key.indexOf("]");
+      if (index_close < 0) throw `Could not find ']' in key '${fin_key}'`;
+
+      const final_key = fin_key.substring(0, index_open);
+      const index = parseInt(fin_key.substring(index_open+1, index_close));
+      if (isNaN(index)) throw `Could not parse index in key '${fin_key}'`;
+
+      // проще сделать объектом?
+      if (!cur[final_key]) cur[final_key] = [];
+      while (cur[final_key].length <= index) {
+        cur[final_key].push({});
+      }
+
+      if (last_key) cur[final_key][index] = data;
+      prev = cur;
+      cur = cur[final_key][index];
+      //console.log(ret);
+    }
+
+    //cur = data;
+    //console.log(ret);
+  }
+
+  const arr = Object.entries(ret);
+  if (arr.length === 1) return arr[0][1]; // [ [ key, value ], [ key, value ] ... ]
+  return ret;
+}
+
 async function make_sane_return(func) {
   try {
     return { data: await func(), status: { code: 200, desc: "Ok" } };
@@ -88,15 +149,15 @@ function make_proto_method(obj, name, url, parse_func) {
 dahua.prototype.host = function() { return this.HOST; };
 dahua.prototype.type = function() { return "dahua"; };
 
-make_proto_method(dahua, "get_software_version", '/cgi-bin/magicBox.cgi?action=getSoftwareVersion', single_line_resp);
-make_proto_method(dahua, "get_hardware_version", '/cgi-bin/magicBox.cgi?action=getHardwareVersion', single_line_resp);
-make_proto_method(dahua, "get_device_type", '/cgi-bin/magicBox.cgi?action=getDeviceType', single_line_resp);
-make_proto_method(dahua, "get_serial_no", '/cgi-bin/magicBox.cgi?action=getSerialNo', single_line_resp);
-make_proto_method(dahua, "get_machine_name", '/cgi-bin/magicBox.cgi?action=getMachineName', single_line_resp);
-make_proto_method(dahua, "get_system_info", '/cgi-bin/magicBox.cgi?action=getSoftwareVersion', single_line_resp);
-make_proto_method(dahua, "get_device_class", `/cgi-bin/magicBox.cgi?action=getDeviceClass`, single_line_resp);
-make_proto_method(dahua, "get_channel_title", `/cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle`, single_line_resp);
-make_proto_method(dahua, "get_general_config", '/cgi-bin/configManager.cgi?action=getConfig&name=General', single_line_resp);
+make_proto_method(dahua, "get_software_version", '/cgi-bin/magicBox.cgi?action=getSoftwareVersion', parse_output);
+make_proto_method(dahua, "get_hardware_version", '/cgi-bin/magicBox.cgi?action=getHardwareVersion', parse_output);
+make_proto_method(dahua, "get_device_type", '/cgi-bin/magicBox.cgi?action=getDeviceType', parse_output);
+make_proto_method(dahua, "get_serial_no", '/cgi-bin/magicBox.cgi?action=getSerialNo', parse_output);
+make_proto_method(dahua, "get_machine_name", '/cgi-bin/magicBox.cgi?action=getMachineName', parse_output);
+make_proto_method(dahua, "get_system_info", '/cgi-bin/magicBox.cgi?action=getSystemInfo', parse_output);
+make_proto_method(dahua, "get_device_class", `/cgi-bin/magicBox.cgi?action=getDeviceClass`, parse_output);
+make_proto_method(dahua, "get_channel_title", `/cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle`, parse_output);
+make_proto_method(dahua, "get_general_config", '/cgi-bin/configManager.cgi?action=getConfig&name=General', parse_output);
 
 dahua.prototype.get_user_info = async function(username) {
   const self = this;
@@ -108,7 +169,7 @@ dahua.prototype.get_user_info = async function(username) {
       //httpsAgent,
     });
 
-    return several_lines_simple_resp(response.data);
+    return parse_output(response.data);
   });
 };
 
