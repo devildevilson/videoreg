@@ -27,8 +27,9 @@ function several_lines_simple_resp(str) {
 // по идее это обобщенная функция, которая может обработать любой вывод из дахуа камер
 function parse_output(str) {
   let ret = {};
-  const lines = str.split("\r\n");
+  const lines = str.trim().split("\r\n");
   if (lines.length === 1) return single_line_resp(str);
+  if (lines.length === 2 && lines[1].trim() === "") return single_line_resp(str);
 
   for (const line of lines) {
     const fin_line = line.trim();
@@ -166,6 +167,20 @@ dahua.prototype.get_user_info = async function(username) {
     const response = await self.digest_auth.request({
       method: "GET",
       url: self.BASEURI + `/cgi-bin/userManager.cgi?action=getUserInfo&name=${username}`,
+      //httpsAgent,
+    });
+
+    return parse_output(response.data);
+  });
+};
+
+dahua.prototype.get_caps = async function(channel_index) {
+  const self = this;
+  return await make_sane_return(async function() {
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    const response = await self.digest_auth.request({
+      method: "GET",
+      url: self.BASEURI + `/cgi-bin/devVideoInput.cgi?action=getCaps&channel=${channel_index}`,
       //httpsAgent,
     });
 

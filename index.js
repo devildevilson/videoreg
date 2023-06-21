@@ -63,16 +63,17 @@ let xlsx_data = [
   // надо сделать так чтобы среди всех производителей АПИ был максимально одинаковым + указать какой тип камеры
 
   {
-    const dev_url = new URL(cams_list.cameras[0].url);
+    //const dev_url = new URL(cams_list.cameras[0].url);
     const device = new dahua({
-      host: dev_url.hostname,
+      host: "10.0.69.130",
       port: 80,
-      user: dev_url.username,
-      pass: dev_url.password
+      user: "aqmol",
+      pass: "aqmol12345"
     });
 
-    const ret1 = await device.get_channel_title();
+    //const ret1 = await device.get_channel_title();
     //const ret2 = await device.get_system_info();
+    const ret1 = await device.get_caps(1);
     console.log(ret1.data);
     //console.log(ret2.data);
   }
