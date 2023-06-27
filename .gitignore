@@ -3,3 +3,7 @@ node_modules/
 *.xlsx
 *.pdf
 package-lock.json
+*.jpg
+*.png
+*.sgp
+*.xml

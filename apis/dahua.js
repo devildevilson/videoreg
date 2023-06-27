@@ -110,7 +110,7 @@ async function make_sane_return(func) {
 
 let dahua = function(options) {
   this.TRACE = options.log;
-  this.BASEURI = 'http://'+ options.host + ':' + options.port;
+  this.BASEURI = "https://" + options.host + ':' + options.port;
   this.USER = options.user;
   this.PASS = options.pass;
   this.HOST = options.host;
@@ -142,6 +142,10 @@ function make_proto_method(obj, name, url, parse_func) {
         throw { response: { status: 404, statusText: "File Not Found" } };
       }
 
+      if (response.request.path !== url) {
+        throw { response: { status: 404, statusText: "Path Not Found" } };
+      }
+
       return parse_func(response.data);
     });
   };
@@ -161,6 +165,7 @@ make_proto_method(dahua, "get_channel_title", `/cgi-bin/configManager.cgi?action
 make_proto_method(dahua, "get_general_config", '/cgi-bin/configManager.cgi?action=getConfig&name=General', parse_output);
 
 dahua.prototype.get_user_info = async function(username) {
+  const path = `/cgi-bin/userManager.cgi?action=getUserInfo&name=${username}`;
   const self = this;
   return await make_sane_return(async function() {
     const httpsAgent = new https.Agent({ rejectUnauthorized: false });
@@ -170,11 +175,16 @@ dahua.prototype.get_user_info = async function(username) {
       //httpsAgent,
     });
 
+    if (response.request.path !== path) {
+      throw { response: { status: 404, statusText: "Path Not Found" } };
+    }
+
     return parse_output(response.data);
   });
 };
 
 dahua.prototype.get_caps = async function(channel_index) {
+  const path = `/cgi-bin/devVideoInput.cgi?action=getCaps&channel=${channel_index}`;
   const self = this;
   return await make_sane_return(async function() {
     const httpsAgent = new https.Agent({ rejectUnauthorized: false });
@@ -184,8 +194,48 @@ dahua.prototype.get_caps = async function(channel_index) {
       //httpsAgent,
     });
 
+    if (response.request.path !== path) {
+      throw { response: { status: 404, statusText: "Path Not Found" } };
+    }
+
     return parse_output(response.data);
   });
 };
+
+dahua.prototype.picture = async function(channel_id) {
+  const channel_index = (""+channel_id).trim().substring(0,1);
+  const path = `/cgi-bin/snapshot.cgi?channel=${channel_index}`;
+  const req_url = `${this.BASEURI}${path}`;
+  const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+  const response = await this.digest_auth.request({
+    method: "GET",
+    url: req_url,
+    httpsAgent,
+    responseType: 'arraybuffer'
+  });
+
+  if (typeof response.data === "string" && 
+     (response.data.indexOf("The requested URL was not found on this server") !== -1 || 
+      response.data.indexOf("404 File Not Found") !== -1)) {
+    throw { response: { status: 404, statusText: "File Not Found" } };
+  }
+
+  if (response.request.path !== path) {
+    throw { response: { status: 404, statusText: "Path Not Found" } };
+  }
+
+  //console.log(response);
+  return response.data;
+}
+
+// имеет смысл сделать общие функции для dahua и для hikvision
+dahua.prototype.device_info = async function() {
+  const klass = await this.get_device_class();
+  if (!klass.data) return klass;
+  const type = await this.get_device_type();
+  if (!type.data) return type;
+
+  return { data: { type: klass.data, model: type.data }, status: { code: 200, desc: "Ok" } };
+}
 
 module.exports = dahua;

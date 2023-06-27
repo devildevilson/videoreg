@@ -45,14 +45,17 @@ async function make_sane_return(func) {
     }
 
     //console.log(e);
-    //return { data: undefined, status: { code: -1, desc: "Undefined error" } }
+    if (typeof e.code === "string") {
+      return { data: undefined, status: { code: -1, desc: `${e.code} ${e.reason}` } }
+    }
+
     throw e;
   }
 }
 
 let hikvision = function(options) {
   this.TRACE = options.log;
-  this.BASEURI = 'http://'+ options.host + ':' + options.port;
+  this.BASEURI = "https://" + options.host + ':' + options.port;
   this.USER = options.user;
   this.PASS = options.pass;
   this.HOST = options.host;
@@ -67,12 +70,13 @@ hikvision.prototype.host = function() { return this.HOST; };
 hikvision.prototype.type = function() { return "hikvision"; };
 
 hikvision.prototype.system_status = async function() {
+  const path = "/ISAPI/System/status";
   const self = this;
   const ret = await make_sane_return(async function() {
     const httpsAgent = new https.Agent({ rejectUnauthorized: false });
     const response = await self.digest_auth.request({
       method: "GET",
-      url: self.BASEURI + '/ISAPI/System/status',
+      url: self.BASEURI + path,
       //httpsAgent,
     });
 
@@ -80,6 +84,10 @@ hikvision.prototype.system_status = async function() {
        (response.data.indexOf("The requested URL was not found on this server") !== -1 || 
         response.data.indexOf("404 File Not Found") !== -1)) {
       throw { response: { status: 404, statusText: "File Not Found" } };
+    }
+
+    if (response.request.path !== path) {
+      throw { response: { status: 404, statusText: "Path Not Found" } };
     }
 
     return response.data;
@@ -90,12 +98,13 @@ hikvision.prototype.system_status = async function() {
 }
 
 hikvision.prototype.system_device_info = async function() {
+  const path = "/ISAPI/System/deviceInfo";
   const self = this;
   const ret = await make_sane_return(async function() {
     const httpsAgent = new https.Agent({ rejectUnauthorized: false });
     const response = await self.digest_auth.request({
       method: "GET",
-      url: self.BASEURI + '/ISAPI/System/deviceInfo',
+      url: self.BASEURI + "/ISAPI/System/deviceInfo",
       httpsAgent,
     });
 
@@ -105,6 +114,10 @@ hikvision.prototype.system_device_info = async function() {
       throw { response: { status: 404, statusText: "File Not Found" } };
     }
 
+    if (response.request.path !== path) {
+      throw { response: { status: 404, statusText: "Path Not Found" } };
+    }
+
     //console.log(response);
     return response.data;
   });
@@ -112,6 +125,40 @@ hikvision.prototype.system_device_info = async function() {
   //console.log(ret);
   const data = ret.data ? convert_output(ret.data, "DeviceInfo") : undefined;
   return { data, status: ret.status };
+}
+
+// отправим строку (или число) вида: А0В, где А - номер канала, В - номер доп канала (обычно 1 или 2)
+// например 101 или 201
+hikvision.prototype.picture = async function(channel_id) {
+  const req_url = `${this.BASEURI}/ISAPI/Streaming/channels/${channel_id}/picture`;
+  const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+  const response = await this.digest_auth.request({
+    method: "GET",
+    url: req_url,
+    httpsAgent,
+    responseType: 'arraybuffer'
+  });
+
+  if (typeof response.data === "string" && 
+     (response.data.indexOf("The requested URL was not found on this server") !== -1 || 
+      response.data.indexOf("404 File Not Found") !== -1)) {
+    throw { response: { status: 404, statusText: "File Not Found" } };
+  }
+
+  if (response.request.path !== path) {
+      throw { response: { status: 404, statusText: "Path Not Found" } };
+    }
+
+  //console.log(response);
+  return response.data;
+}
+
+hikvision.prototype.device_info = async function() {
+  const info = await this.system_device_info();
+  if (!info.data) return info;
+
+  //console.log(info);
+  return { data: { type: info.data.deviceType, model: info.data.model }, status: { code: 200, desc: "Ok" } };
 }
 
 module.exports = hikvision;
