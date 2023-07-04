@@ -13,6 +13,7 @@
     "@mhoc/axios-digest-auth": "^0.8.0",
     "axios": "^1.4.0",
     "dotenv": "^16.1.4",
+    "mysql2": "^3.4.3",
     "node-xlsx": "^0.23.0",
     "xml-js": "^1.6.11"
   }

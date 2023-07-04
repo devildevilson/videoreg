@@ -108,12 +108,24 @@ async function make_sane_return(func) {
   }
 }
 
+const protocol_port = {
+  http: 80,
+  https: 443,
+
+};
+
+function str_exists(str) { return str && str !== ""; }
+
 let dahua = function(options) {
   this.TRACE = options.log;
-  this.BASEURI = "https://" + options.host + ':' + options.port;
+  // короч протокол нужно поменять если устройство с самоподписанным сертификатом
+  // понять что тут самоподписанный сертификат довольно сложно пока не спросишь чего нибудь у рега
+  this.PROTOCOL = str_exists(options.protocol) ? options.protocol : "http";
+  this.PORT = str_exists(options.port) ? options.port : (protocol_port[this.PROTOCOL] ? protocol_port[this.PROTOCOL] : 80);
+  this.HOST = options.host;
+  this.BASEURI = this.PROTOCOL + "://" + options.host + ':' + this.PORT;
   this.USER = options.user;
   this.PASS = options.pass;
-  this.HOST = options.host;
 
   this.digest_auth = new axios_digest.default({
     username: this.USER,
@@ -125,13 +137,15 @@ function make_proto_method(obj, name, url, parse_func) {
   obj.prototype[name] = async function() {
     const self = this;
     return await make_sane_return(async function() {
-      const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+      const httpsAgent = this.PROTOCOL === "https" ? new https.Agent({ rejectUnauthorized: false }) : undefined;
+      //console.log(url);
       const response = await self.digest_auth.request({
         method: "GET",
         url: self.BASEURI + url,
-        //httpsAgent,
+        httpsAgent,
       });
 
+      //console.log(response);
       if (typeof response.data !== "string") {
         throw { response: { status: response.data.Ret, statusText: response.data.Tip } };
       }
@@ -146,7 +160,7 @@ function make_proto_method(obj, name, url, parse_func) {
         throw { response: { status: 404, statusText: "Path Not Found" } };
       }
 
-      return parse_func(response.data);
+      return parse_func(response.data.trim());
     });
   };
 }
@@ -164,15 +178,27 @@ make_proto_method(dahua, "get_device_class", `/cgi-bin/magicBox.cgi?action=getDe
 make_proto_method(dahua, "get_channel_title", `/cgi-bin/configManager.cgi?action=getConfig&name=ChannelTitle`, parse_output);
 make_proto_method(dahua, "get_general_config", '/cgi-bin/configManager.cgi?action=getConfig&name=General', parse_output);
 
+make_proto_method(dahua, "get_hard_disk_info", '/cgi-bin/storageDevice.cgi?action=factory.getPortInfo', parse_output);
+make_proto_method(dahua, "get_storage_names", '/cgi-bin/storageDevice.cgi?action=factory.getCollect', parse_output);
+make_proto_method(dahua, "get_storage_info", '/cgi-bin/storageDevice.cgi?action=getDeviceAllInfo', parse_output);
+make_proto_method(dahua, "get_storage_caps", '/cgi-bin/storage.cgi?action=getCaps', parse_output);
+make_proto_method(dahua, "get_record_storage_point", '/cgi-bin/configManager.cgi?action=getConfig&name=RecordStoragePoint', parse_output);
+make_proto_method(dahua, "get_storage_group", '/cgi-bin/configManager.cgi?action=getConfig&name=StorageGroup', parse_output);
+
+make_proto_method(dahua, "get_record_caps", '/cgi-bin/recordManager.cgi?action=getCaps', parse_output);
+make_proto_method(dahua, "get_record_info", '/cgi-bin/configManager.cgi?action=getConfig&name=Record', parse_output);
+make_proto_method(dahua, "get_record_mode", '/cgi-bin/configManager.cgi?action=getConfig&name=RecordMode', parse_output);
+make_proto_method(dahua, "get_global_media_config", '/cgi-bin/configManager.cgi?action=getConfig&name=MediaGlobal', parse_output);
+
 dahua.prototype.get_user_info = async function(username) {
   const path = `/cgi-bin/userManager.cgi?action=getUserInfo&name=${username}`;
   const self = this;
   return await make_sane_return(async function() {
-    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    const httpsAgent = this.PROTOCOL === "https" ? new https.Agent({ rejectUnauthorized: false }) : undefined;
     const response = await self.digest_auth.request({
       method: "GET",
       url: self.BASEURI + `/cgi-bin/userManager.cgi?action=getUserInfo&name=${username}`,
-      //httpsAgent,
+      httpsAgent,
     });
 
     if (response.request.path !== path) {
@@ -187,11 +213,11 @@ dahua.prototype.get_caps = async function(channel_index) {
   const path = `/cgi-bin/devVideoInput.cgi?action=getCaps&channel=${channel_index}`;
   const self = this;
   return await make_sane_return(async function() {
-    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    const httpsAgent = this.PROTOCOL === "https" ? new https.Agent({ rejectUnauthorized: false }) : undefined;
     const response = await self.digest_auth.request({
       method: "GET",
       url: self.BASEURI + `/cgi-bin/devVideoInput.cgi?action=getCaps&channel=${channel_index}`,
-      //httpsAgent,
+      httpsAgent,
     });
 
     if (response.request.path !== path) {
@@ -206,7 +232,7 @@ dahua.prototype.picture = async function(channel_id) {
   const channel_index = (""+channel_id).trim().substring(0,1);
   const path = `/cgi-bin/snapshot.cgi?channel=${channel_index}`;
   const req_url = `${this.BASEURI}${path}`;
-  const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+  const httpsAgent = this.PROTOCOL === "https" ? new https.Agent({ rejectUnauthorized: false }) : undefined;
   const response = await this.digest_auth.request({
     method: "GET",
     url: req_url,

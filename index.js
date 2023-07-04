@@ -75,21 +75,22 @@ let xlsx_data = [
 
   // надо сделать так чтобы среди всех производителей АПИ был максимально одинаковым + указать какой тип камеры
 
-  // {
-  //   //const dev_url = new URL(cams_list.cameras[0].url);
-  //   const device = new dahua({
-  //     host: "10.0.69.130",
-  //     port: 80,
-  //     user: "aqmol",
-  //     pass: "aqmol12345"
-  //   });
+  {
+    //const dev_url = new URL(cams_list.cameras[0].url);
+    const device = new dahua({
+      host: "10.0.114.131",
+      port: 80,
+      user: "admin",
+      pass: "qwerty12345"
+    });
 
-  //   //const ret1 = await device.get_channel_title();
-  //   //const ret2 = await device.get_system_info();
-  //   const ret1 = await device.get_caps(1);
-  //   console.log(ret1.data);
-  //   //console.log(ret2.data);
-  // }
+    //const ret1 = await device.get_channel_title();
+    //const ret2 = await device.get_system_info();
+    //const ret1 = await device.get_caps(1);
+    const ret1 = await device.get_device_type();
+    console.log(ret1);
+    //console.log(ret2.data);
+  }
 
   // {
   //   //const dev_url = new URL(cams_list.cameras[0].url);
@@ -147,15 +148,15 @@ let xlsx_data = [
   {
     //const dev_url = new URL(cams_list.cameras[0].url);
     //http://10.29.2.2/ISAPI/Streaming/channels/101/picture
-    const device = new trassir({
-      host: "10.29.20.194",
-      port: 8080,
-      user: "aqmol",
-      pass: "aqmol12345"
-    });
+    // const device = new trassir({
+    //   host: "10.29.20.194",
+    //   port: 8080,
+    //   user: "aqmol",
+    //   pass: "aqmol12345"
+    // });
 
-    const ret1 = await device.object_data(201);
-    console.log(ret1);
+    // const ret1 = await device.object_data(201);
+    // console.log(ret1);
     // const date_str = make_current_day_str();
     // const buffer = ret1;
     // fs.writeFile(`pic3_${date_str}.jpg`, buffer, err => {

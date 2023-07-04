@@ -53,12 +53,22 @@ async function make_sane_return(func) {
   }
 }
 
+const protocol_port = {
+  http: 80,
+  https: 443,
+
+};
+
+function str_exists(str) { return str && str !== ""; }
+
 let hikvision = function(options) {
   this.TRACE = options.log;
-  this.BASEURI = "https://" + options.host + ':' + options.port;
+  this.PROTOCOL = str_exists(options.protocol) ? options.protocol : "http";
+  this.PORT = str_exists(options.port) ? options.port : (protocol_port[this.PROTOCOL] ? protocol_port[this.PROTOCOL] : 80);
+  this.HOST = options.host;
+  this.BASEURI = this.PROTOCOL + "://" + options.host + ':' + this.PORT;
   this.USER = options.user;
   this.PASS = options.pass;
-  this.HOST = options.host;
 
   this.digest_auth = new axios_digest.default({
     username: this.USER,

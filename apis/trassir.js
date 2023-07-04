@@ -3,12 +3,22 @@ const https = require("https");
 
 // как брать тип устройства?
 
+const protocol_port = {
+  http: 80,
+  https: 443,
+
+};
+
+function str_exists(str) { return str && str !== ""; }
+
 let trassir = function(options) {
   this.TRACE = options.log;
-  this.BASEURI = "https://" + options.host + ':' + options.port;
+  this.PROTOCOL = str_exists(options.protocol) ? options.protocol : "https";
+  this.PORT = str_exists(options.port) ? options.port : (protocol_port[this.PROTOCOL] ? protocol_port[this.PROTOCOL] : 80);
+  this.HOST = options.host;
+  this.BASEURI = this.PROTOCOL + "://" + options.host + ':' + this.PORT;
   this.USER = options.user;
   this.PASS = options.pass;
-  this.HOST = options.host;
 
   //this.sid = "";
   //this.sid_url = `?sid=${this.sid}`;
@@ -68,9 +78,7 @@ trassir.prototype.picture = async function(channel_id) {
   const channel_index = parseInt((""+channel_id).trim().substring(0,1));
   if (isNaN(channel_index)) throw `Could not parse channel id ${channel_id}`;
   //`${this.BASEURI}/screenshot/HTwUsj8U?password=${this.PASS}``
-  if (!this.channels) {
-    await this.load_objects();
-  }
+  if (!this.channels) { await this.load_objects(); }
 
   const guid = this.channels[channel_index-1].guid;
   const url = `${this.BASEURI}/screenshot/${guid}?password=${this.PASS}`;
@@ -84,9 +92,7 @@ trassir.prototype.object_data = async function(channel_id) {
   const channel_index = parseInt((""+channel_id).trim().substring(0,1));
   if (isNaN(channel_index)) throw `Could not parse channel id ${channel_id}`;
   //`${this.BASEURI}/screenshot/HTwUsj8U?password=${this.PASS}``
-  if (!this.channels) {
-    await this.load_objects();
-  }
+  if (!this.ip_devices) { await this.load_objects(); }
 
   const guid = this.ip_devices[channel_index-1].guid;
   const url = `${this.BASEURI}/objects/${guid}?password=${this.PASS}`;
