@@ -65,6 +65,18 @@ let functions = {
     return res.length !== 0 ? res[0] : undefined;
   },
 
+  find_device_by_group_id_type_channel_id: async function(group_id, type, channel_id) {
+    const query_str = `SELECT * FROM \`devices\` WHERE group_id = ${group_id} AND type = '${type}' AND channel_id = ${channel_id};`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res.length !== 0 ? res[0] : undefined;
+  },
+
+  find_group_by_name: async function(name) {
+    const query_str = `SELECT * FROM \`groups\` WHERE name LIKE '${name}%';`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res.length !== 0 ? res[0] : undefined;
+  },
+
   update_row: async function(table_name, data) {
     const row_id = data.id;
 

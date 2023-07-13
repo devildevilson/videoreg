@@ -6,6 +6,7 @@
 -- и еще у нас будут разные регионы и разные сервера
 -- object_id например 12081, наверное может быть больше чем 5 символов, но вряд ли слишком большим
 -- скорее всего object_id будет определяющим
+-- МАСКУ ДОБАВИТЬ
 CREATE TABLE IF NOT EXISTS `groups` (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
   parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS `groups` (
   type VARCHAR(128) NOT NULL DEFAULT '',
   coords CHAR(32) NOT NULL DEFAULT '',
   gateway CHAR(16) NOT NULL DEFAULT '',
+  netmask CHAR(16) NOT NULL DEFAULT '',
   host_min CHAR(16) NOT NULL DEFAULT '',
   host_max CHAR(16) NOT NULL DEFAULT '',
   comment TEXT NOT NULL,
@@ -39,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `group_comments` (
 -- vendor поддерживаем по скрипту Dahua, Hikvision, Trassir, надо проверять по toLowerCase, но могут быть и другие
 -- наверное нужно задать ртсп ссылку для каждого устройства, логин пароль еще
 -- предположительно нужно использовать 
--- channel_id в нотации 101 - первый канал, первый допканал
+-- channel_id в нотации 101 - первый канал, первый допканал, лучше пусть просто будет инт, доп каналов обычно максимум 2
 -- было бы неплохо еще понять когда было устройство доступно в последний раз
 -- проверяем например каждые два часа, если что то случилось пусть обращаются в пртг
 -- type - это удобный для человека тип устройства что то вроде: рег, камера, кнопка и проч

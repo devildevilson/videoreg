@@ -5,8 +5,11 @@ const hikvision = require("./apis/hikvision");
 const trassir = require("./apis/trassir");
 const egsv_api = require("./apis/egsv");
 const prtg_api = require("./apis/prtg");
+const db = require("./apis/db");
 const xlsx = require("node-xlsx");
 const fs = require("fs");
+//const google = require("./apis/google").config("jwt.keys.json");
+const crypto = require("crypto");
 
 async function device_is_dahua(url) {
   const ipreg = new dahua({
@@ -40,6 +43,146 @@ function make_current_day_str() {
   const day_str = make_good_day_num(current_date.getDate());
   return `${current_date.getFullYear()}.${month_str}.${day_str}`;
 }
+
+const eng_abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+function num_to_abc(num) {
+  const count = Math.floor(num / eng_abc.length);
+  const index = num % eng_abc.length;
+  if (count < 1) return eng_abc[index];
+  return num_to_abc(count-1) + eng_abc[index];
+}
+
+function make_spreadsheet_coord(x, y) {
+  return `${num_to_abc(x)}${y}`;
+}
+
+function sha256(data) {
+  return crypto.createHash("sha256").update(data).digest('hex');
+}
+
+function unite_objs(parent, obj) {
+  let ret = parent;
+  for (const [ key, value ] of Object.entries(obj)) {
+    ret[key] = value;
+  }
+
+  return ret;
+}
+
+function is_numeric_char(c) { return /^\d$/.test(c); }
+function is_numeric(str) { return /^\d+$/.test(str); }
+function is_hex(str) { return /^[0-9A-F]+$/i.test(str); }
+function is_coords(str) { return /^[-+]?([1-8]?\d(\.\d+)?|90(\.0+)?),\s*[-+]?(180(\.0+)?|((1[0-7]\d)|([1-9]?\d))(\.\d+)?)$/g.test(str); }
+function is_ip_address(str) { return /^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$/g.test(str); }
+const object_tags_to_human = {
+  "router": "роутер",
+  "cam": "камера",
+  "button": "кнопка",
+  "nvr": "рег",
+};
+const human_tags_to_object = {
+  "роутер": "router",
+  "камера": "cam",
+  "кнопка": "button",
+  "рег": "nvr",
+};
+function check_type_group(type) { return human_tags_to_object[type] ? true : false }
+function check_type_device(type) { return human_tags_to_object[type] ? true : false }
+function get_true() { return true; }
+const protocols_set = new Set([ "http", "https" ]);
+function check_protocol(prot) { return protocols_set.has(prot); }
+const boolean_set = new Set([ "+", "-", "✓", "×" ]);
+function check_boolean(boolean) { return boolean_set.has(boolean); }
+async function get_db_parent(field_name, value) { return { "parent_id": (await db.find_group_by_name(value)).id }; }
+async function get_db_group(field_name, value) { return { "group_id": (await db.find_group_by_object_id(value)).id }; }
+async function get_int(field_name, value) { 
+  const parsed = typeof value === "number" ? value : parseInt(value);
+  return { 
+    [field_name]: isNaN(parsed) ? undefined : parsed 
+  }; 
+}
+
+function arr_find(arr, value) {
+  let i = 0;
+  for (; i < arr.length && arr[i] !== value; ++i) {}
+  return i;
+}
+
+const GOOGLESHEETS_DEFAULT_NAME = "Sheet1";
+
+const ignore_update_set = new Set([ "id", "data_hash", "egsv_id", "prtg_id", "time_updated" ]);
+const groups_data_fields = [ 
+  "parent", "object_id", "name", "description", "type", "coords", "gateway", "netmask", "host_min", "host_max", "comment", 
+  "id", "data_hash", "egsv_id", "prtg_id", "time_updated" 
+];
+const devices_data_fields = [ 
+  "object_id", "type", "channel_id", 
+
+  "ip_address", "name", "vendor", "class", "model", "rtsp_link", "protocol", "port", "coords", "admin_login", "admin_password", 
+  "user_login", "user_password", "old_device", "has_rtsp", "has_self_cert", "archive", "comment", 
+
+  "id", "data_hash", "egsv_id", "prtg_id", "time_updated" 
+];
+
+const groups_hash_placement = arr_find(groups_data_fields, "data_hash");
+const devices_hash_placement = arr_find(devices_data_fields, "data_hash");
+const groups_id_placement = arr_find(groups_data_fields, "id");
+const devices_id_placement = arr_find(devices_data_fields, "id");
+const devices_type_placement = arr_find(devices_data_fields, "type");
+const devices_object_id_placement = arr_find(devices_data_fields, "object_id");
+const devices_ip_address_placement = arr_find(devices_data_fields, "ip_address");
+
+const groups_data_placement = { 
+  "parent": { column: "A", check: is_numeric, get_db_data: get_db_parent }, 
+  "object_id": { column: "B", check: is_numeric, get_db_data: undefined }, 
+  "name": { column: "C", check: get_true, get_db_data: undefined }, 
+  "description": { column: "D", check: get_true, get_db_data: undefined }, 
+  "type": { column: "E", check: check_type_group, get_db_data: undefined }, 
+  "coords": { column: "F", check: is_coords, get_db_data: undefined }, 
+  "gateway": { column: "G", check: is_ip_address, get_db_data: undefined }, 
+  "netmask": { column: "H", check: is_ip_address, get_db_data: undefined }, 
+  "host_min": { column: "I", check: is_ip_address, get_db_data: undefined }, 
+  "host_max": { column: "J", check: is_ip_address, get_db_data: undefined }, 
+  "comment": { column: "K", check: get_true, get_db_data: undefined }, 
+  // вот эти данные не изменяются в бд
+  "id": { column: "M", check: is_numeric, get_db_data: undefined }, 
+  "data_hash": { column: "N", check: is_hex, get_db_data: undefined }, 
+  "egsv_id": { column: "O", check: is_numeric, get_db_data: undefined }, 
+  "prtg_id": { column: "P", check: is_numeric, get_db_data: undefined }, 
+  "time_updated": { column: "Q", check: get_true, get_db_data: undefined }, 
+};
+
+const devices_data_placement = {
+  "object_id": { column: "A", check: is_numeric, get_db_data: get_db_group }, 
+  "type": { column: "B", check: check_type_device, get_db_data: undefined }, 
+  "channel_id": { column: "C", check: is_numeric, get_db_data: get_int }, 
+
+  "ip_address": { column: "D", check: is_ip_address, get_db_data: undefined }, 
+  "name": { column: "E", check: get_true, get_db_data: undefined }, 
+  "vendor": { column: "F", check: get_true, get_db_data: undefined }, 
+  "class": { column: "G", check: get_true, get_db_data: undefined }, 
+  "model": { column: "H", check: get_true, get_db_data: undefined }, 
+  "rtsp_link": { column: "I", check: get_true, get_db_data: undefined }, 
+  "protocol": { column: "J", check: check_protocol, get_db_data: undefined }, 
+  "port": { column: "K", check: is_numeric, get_db_data: undefined }, 
+  "coords": { column: "L", check: is_coords, get_db_data: undefined }, 
+  "admin_login": { column: "M", check: get_true, get_db_data: undefined }, 
+  "admin_password": { column: "N", check: get_true, get_db_data: undefined }, 
+  "user_login": { column: "O", check: get_true, get_db_data: undefined }, 
+  "user_password": { column: "P", check: get_true, get_db_data: undefined }, 
+  //"egsv_server": { column: "B", check: is_numeric, get_db_data: undefined }, 
+  "old_device": { column: "Q", check: check_boolean, get_db_data: undefined }, 
+  "has_rtsp": { column: "R", check: check_boolean, get_db_data: undefined }, 
+  "has_self_cert": { column: "S", check: check_boolean, get_db_data: undefined }, 
+  "archive": { column: "T", check: get_true, get_db_data: undefined }, 
+  "comment": { column: "U", check: get_true, get_db_data: undefined }, 
+
+  "id": { column: "W", check: is_numeric, get_db_data: undefined }, 
+  "data_hash": { column: "X", check: is_hex, get_db_data: undefined }, 
+  "egsv_id": { column: "Y", check: is_numeric, get_db_data: undefined }, 
+  "prtg_id": { column: "Z", check: is_numeric, get_db_data: undefined }, 
+  "time_updated": { column: "AA", check: get_true, get_db_data: undefined }, 
+};
 
 let xlsx_data = [
   [ "№ объекта", "Описание", "IP", "Тип устройства", "Модель устройства", "Производитель" ]
@@ -87,8 +230,8 @@ let xlsx_data = [
     //const ret1 = await device.get_channel_title();
     //const ret2 = await device.get_system_info();
     //const ret1 = await device.get_caps(1);
-    const ret1 = await device.get_device_type();
-    console.log(ret1);
+    //const ret1 = await device.get_device_type();
+    //console.log(ret1);
     //console.log(ret2.data);
   }
 
@@ -306,6 +449,116 @@ let xlsx_data = [
   //   if (err) { console.error(err); return; }
   //   console.log(`Success computing`);
   // });
+
+  // console.log(eng_abc.length);
+  // for (let i = 0; i < 50; ++i) {
+  //   console.log(num_to_abc(i));
+  // }
+
+  //console.log(num_to_abc(devices_data_fields.length));
+  // фух кое как закончил, это обновление таблицы устройств
+  // const last_column = num_to_abc(devices_data_fields.length);
+  // const values = await google.read_values(file_id, `A2:${last_column}`);
+  // for (let index = 0; index < values.length; ++index) {
+  //   const row = rows[index];
+
+  //   // без каких данных можно проигнорировать?
+  //   const type = row[devices_type_placement];
+  //   if (!type || type === "") continue;
+  //   const object_id = row[devices_object_id_placement];
+  //   if (!object_id || object_id === "") continue;
+  //   const ip_address = row[devices_ip_address_placement];
+
+  //   const valuable_data_part = row.slice(0, 22);
+  //   const data_str = valuable_data_part.join(";");
+  //   const hash = sha256(data_str);
+  //   const row_hash = row[devices_hash_placement];
+  //   if (row_hash === hash) continue;
+
+  //   const final_index = index + 1 + 1; // индексируем с 1 + стартуем со второй строки
+  //   let device_data = {};
+  //   const continueb = false;
+  //   for (let i = 0; i < devices_data_fields.length; ++i) {
+  //     const field_name = devices_data_fields[i];
+  //     if (ignore_update_set.has(field_name)) continue;
+
+  //     const row_value = row[i];
+  //     const check = devices_data_placement[field_name].check(row_value);
+  //     if (!check) {
+  //       // пишем комментарий сзади строки
+  //       const comm_coord = make_spreadsheet_coord(devices_data_fields.length, final_index);
+  //       const error_coord = make_spreadsheet_coord(i, final_index);
+  //       await google.write_values(file_id, `${comm_coord}:${comm_coord}`, [ [ `Could not parse '${field_name}' at ${error_coord}` ] ]);
+  //       continueb = true;
+  //       break;
+  //     }
+
+  //     if (devices_data_placement[field_name].get_db_data) {
+  //       const obj = await devices_data_placement[field_name].get_db_data(field_name, row_value);
+  //       device_data = unite_objs(device_data, obj);
+  //     } else {
+  //       device_data[field_name] = row_value;
+  //     }
+  //   }
+
+  //   if (continueb) continue;
+  //   // тут у нас есть распаршенные данные строки, теперь надо понять есть ли такое устройство 
+  //   // если id нет, то попробуем поискать по данным строки
+  //   const row_id = row[devices_id_placement];
+  //   if (!row_id || row_id === "") {
+  //     if (type === "камера") {
+  //       // тогда нам нужны: объект, ид канала, ну и тип
+  //       const found_obj = await db.find_device_by_group_id_type_channel_id(device_data["group_id"], type, device_data["channel_id"]);
+  //       if (found_obj) {
+  //         const camera_data = `${object_id}, ${type}, ${device_data["channel_id"]}`;
+  //         const comm_coord = make_spreadsheet_coord(devices_data_fields.length, final_index);
+  //         await google.write_values(file_id, `${comm_coord}:${comm_coord}`, [ [ `Found potentional camera doublicate (${camera_data}) with id ${found_obj.id}` ] ]);
+  //         continue;
+  //       }
+
+  //       // добавим новую камеру
+  //       // добавим ее в пртг и егсв
+  //       const device_id = await db.create_device(device_data);
+  //       // после обновим последние несколько столбцов
+  //     } else {
+  //       // для остального нужен по большому счету только ip
+  //       if (!ip_address || ip_address === "") continue;
+
+  //       const found_obj = await db.find_device_by_ip_address(ip_address);
+  //       if (found_obj) {
+  //         const dev_data = `${object_id}, ${type}, ${ip_address}`;
+  //         const comm_coord = make_spreadsheet_coord(devices_data_fields.length, final_index);
+  //         await google.write_values(file_id, `${comm_coord}:${comm_coord}`, [ [ `Found potentional device doublicate (${dev_data}) with id ${found_obj.id}` ] ]);
+  //         continue;
+  //       }
+
+  //       // добавим новое устройство
+  //       // утройство достаточно добавить только в пртг и в нашу базу
+  //       const device_id = await db.create_device(device_data);
+  //       // после обновим последние несколько столбцов
+  //     }
+  //   }
+  // }
+
+  // // предположим это группы
+  // const values = await google.read_values(file_id, "A2:P");
+  // for (const row of values) {
+  //   // константы 
+  //   const valuable_data_part = row.slice(0, 11);
+  //   const data_str = valuable_data_part.join(";");
+  //   const hash = sha256(data_str);
+
+  //   if (row_hash !== hash) {
+  //     // обновим, для этого сделаем из массива объект
+  //     await db.update_device(data);
+  //     await prtg.update_device(data); // обновим название группы и устройства?
+  //     await egsv.update_device(data); // обновим название, описание, координаты, таксономию для всей группы
+  //     // обновим хеш и дату в гугл таблице
+  //   }
+  // }
+
+  // в конце обновим сводную таблицу
+  // при обновлении данных нужно как то обнаружить возможные ошибки
 })();
 
 // так что теперь? мы получаем список камер из ЕГСВ и пытаемся понять что перед нами: камера или рег?
@@ -314,3 +567,13 @@ let xlsx_data = [
 // если это рег, то опять проверяем производителя, берем модель и дальше нужно понять сколько и какие камеры подключены
 // к регу, в hikvision кажется есть команды чтобы так или иначе провзаимодействовать с каналами, а у dahua я не нашел
 // нужно взять модели камер которые подключены к регу и их тоже в табличку засунуть
+
+// так что делаем сейчас? нужно создать сервис который будет парсить гугл таблицы и следить за их состоянием 
+// по этим данным сервис будет синхронизировать данные с пртг и егсв
+// прежде всего нужно сделать 4 таблицы: устройства, группы, контакты + общая сводная таблица
+// общая сводная таблица - только для чтения, из остальных таблиц читаем инфу
+// не будет ли таблица устройств слишком большой? скорее всего будет, надо ли что бы она была меньше?
+// да может быть и нет исправлений там немного + есть фильтры
+// как это выглядит? каждые два часа запускаем скрипт который:
+// пройдет все строки, посчитает для строки хеш, сравнит его (с чем? хеш в базе? хеш в строке?),
+// если хеш не совпадает, обновит бд и если нужно обновит ПРТГ и ЕГСВ
