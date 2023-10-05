@@ -8,3 +8,8 @@ nvr*.json
 *.png
 *.sgp
 *.xml
+*.zip
+victor_script/
+*.txt
+*.mp4
+jwt.keys.json

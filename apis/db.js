@@ -35,9 +35,9 @@ function mysql_real_escape_string(str) {
 
 const group_creation_fields = [ "prtg_id", "object_id", "name", "description", "type", "coords", "gateway", "comment" ];
 const device_creation_fields = [ 
-  "egsv_id", "prtg_id", "group_id", "ip_address", "name", "port", "protocol", 
+  "egsv_id", "prtg_id", "group_id", "parent_id", "ip_address", "name", "port", "protocol", 
   "coords", "type", "vendor", "class", "model", "admin_login", "admin_password", "user_login", "user_password",
-  "channel_id", "rtsp_link", "egsv_server", "old_device", "has_rtsp", "has_self_cert", "archive", "comment"
+  "channel_id", "rtsp_link", "sub_link", "egsv_server", "old_device", "has_rtsp", "has_self_cert", "archive", "comment"
 ];
 
 function is_empty_string(str) {
@@ -46,6 +46,18 @@ function is_empty_string(str) {
 
 let functions = {
   close_connection: async function() { return pool.end(); },
+
+  find_group_by_id: async function(id) {
+    const query_str = `SELECT * FROM \`groups\` WHERE id = '${id}';`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res.length !== 0 ? res[0] : undefined;
+  },
+
+  find_device_by_id: async function(id) {
+    const query_str = `SELECT * FROM \`devices\` WHERE id = '${id}';`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res.length !== 0 ? res[0] : undefined;
+  },
 
   find_group_by_object_id: async function(object_id) {
     const query_str = `SELECT * FROM \`groups\` WHERE object_id = '${object_id}';`;
@@ -75,6 +87,36 @@ let functions = {
     const query_str = `SELECT * FROM \`groups\` WHERE name LIKE '${name}%';`;
     const [ res, _ ] = await pool.query(query_str);
     return res.length !== 0 ? res[0] : undefined;
+  },
+
+  find_device_by_egsv_id: async function(egsv_id) {
+    const query_str = `SELECT * FROM \`devices\` WHERE egsv_id = '${egsv_id}';`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res.length !== 0 ? res[0] : undefined;
+  },
+
+  get_groups: async function() {
+    const query_str = `SELECT * FROM \`groups\`;`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res;
+  },
+
+  get_groups_by_type: async function(type) {
+    const query_str = `SELECT * FROM \`groups\` WHERE type = '${type}';`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res;
+  },
+
+  get_devices: async function() {
+    const query_str = `SELECT * FROM \`devices\`;`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res;
+  },
+
+  get_devices_by_type: async function(type) {
+    const query_str = `SELECT * FROM \`devices\` WHERE type = '${type}';`;
+    const [ res, _ ] = await pool.query(query_str);
+    return res;
   },
 
   update_row: async function(table_name, data) {

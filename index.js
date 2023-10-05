@@ -5,6 +5,7 @@ const hikvision = require("./apis/hikvision");
 const trassir = require("./apis/trassir");
 const egsv_api = require("./apis/egsv");
 const prtg_api = require("./apis/prtg");
+const subnet = require("./apis/subnet");
 const db = require("./apis/db");
 const xlsx = require("node-xlsx");
 const fs = require("fs");
@@ -108,6 +109,11 @@ function arr_find(arr, value) {
   return i;
 }
 
+function get_rid_of_first_el(arr) {
+  arr.shift();
+  return arr;
+}
+
 const GOOGLESHEETS_DEFAULT_NAME = "Sheet1";
 
 const ignore_update_set = new Set([ "id", "data_hash", "egsv_id", "prtg_id", "time_updated" ]);
@@ -115,22 +121,14 @@ const groups_data_fields = [
   "parent", "object_id", "name", "description", "type", "coords", "gateway", "netmask", "host_min", "host_max", "comment", 
   "id", "data_hash", "egsv_id", "prtg_id", "time_updated" 
 ];
-const devices_data_fields = [ 
-  "object_id", "type", "channel_id", 
 
-  "ip_address", "name", "vendor", "class", "model", "rtsp_link", "protocol", "port", "coords", "admin_login", "admin_password", 
-  "user_login", "user_password", "old_device", "has_rtsp", "has_self_cert", "archive", "comment", 
-
-  "id", "data_hash", "egsv_id", "prtg_id", "time_updated" 
-];
-
-const groups_hash_placement = arr_find(groups_data_fields, "data_hash");
-const devices_hash_placement = arr_find(devices_data_fields, "data_hash");
-const groups_id_placement = arr_find(groups_data_fields, "id");
-const devices_id_placement = arr_find(devices_data_fields, "id");
-const devices_type_placement = arr_find(devices_data_fields, "type");
-const devices_object_id_placement = arr_find(devices_data_fields, "object_id");
-const devices_ip_address_placement = arr_find(devices_data_fields, "ip_address");
+// const groups_hash_placement = arr_find(groups_data_fields, "data_hash");
+// const devices_hash_placement = arr_find(devices_data_fields, "data_hash");
+// const groups_id_placement = arr_find(groups_data_fields, "id");
+// const devices_id_placement = arr_find(devices_data_fields, "id");
+// const devices_type_placement = arr_find(devices_data_fields, "type");
+// const devices_object_id_placement = arr_find(devices_data_fields, "object_id");
+// const devices_ip_address_placement = arr_find(devices_data_fields, "ip_address");
 
 const groups_data_placement = { 
   "parent": { column: "A", check: is_numeric, get_db_data: get_db_parent }, 
@@ -152,38 +150,6 @@ const groups_data_placement = {
   "time_updated": { column: "Q", check: get_true, get_db_data: undefined }, 
 };
 
-const devices_data_placement = {
-  "object_id": { column: "A", check: is_numeric, get_db_data: get_db_group }, 
-  "type": { column: "B", check: check_type_device, get_db_data: undefined }, 
-  "channel_id": { column: "C", check: is_numeric, get_db_data: get_int }, 
-
-  "ip_address": { column: "D", check: is_ip_address, get_db_data: undefined }, 
-  "name": { column: "E", check: get_true, get_db_data: undefined }, 
-  "vendor": { column: "F", check: get_true, get_db_data: undefined }, 
-  "class": { column: "G", check: get_true, get_db_data: undefined }, 
-  "model": { column: "H", check: get_true, get_db_data: undefined }, 
-  "rtsp_link": { column: "I", check: get_true, get_db_data: undefined }, 
-  "protocol": { column: "J", check: check_protocol, get_db_data: undefined }, 
-  "port": { column: "K", check: is_numeric, get_db_data: undefined }, 
-  "coords": { column: "L", check: is_coords, get_db_data: undefined }, 
-  "admin_login": { column: "M", check: get_true, get_db_data: undefined }, 
-  "admin_password": { column: "N", check: get_true, get_db_data: undefined }, 
-  "user_login": { column: "O", check: get_true, get_db_data: undefined }, 
-  "user_password": { column: "P", check: get_true, get_db_data: undefined }, 
-  //"egsv_server": { column: "B", check: is_numeric, get_db_data: undefined }, 
-  "old_device": { column: "Q", check: check_boolean, get_db_data: undefined }, 
-  "has_rtsp": { column: "R", check: check_boolean, get_db_data: undefined }, 
-  "has_self_cert": { column: "S", check: check_boolean, get_db_data: undefined }, 
-  "archive": { column: "T", check: get_true, get_db_data: undefined }, 
-  "comment": { column: "U", check: get_true, get_db_data: undefined }, 
-
-  "id": { column: "W", check: is_numeric, get_db_data: undefined }, 
-  "data_hash": { column: "X", check: is_hex, get_db_data: undefined }, 
-  "egsv_id": { column: "Y", check: is_numeric, get_db_data: undefined }, 
-  "prtg_id": { column: "Z", check: is_numeric, get_db_data: undefined }, 
-  "time_updated": { column: "AA", check: get_true, get_db_data: undefined }, 
-};
-
 let xlsx_data = [
   [ "№ объекта", "Описание", "IP", "Тип устройства", "Модель устройства", "Производитель" ]
 ];
@@ -203,6 +169,20 @@ let xlsx_data = [
     hash: process.env.PRTG_HASH,
   });
 
+  //const new_group_id = await prtg.add_group(1, "Тест группа (удалить)");
+  //console.log(new_group_id);
+  //await prtg.delete_object(3917);
+
+  //const groups = await prtg.get_child_groups(2520);
+  //console.log(groups);
+
+  //const devices = await prtg.get_child_devices(2526);
+  //console.log(devices);
+
+  //const sensors = await prtg.get_child_sensors(2529);
+  //console.log(sensors);
+  
+
   //const cams_list = await egsv.camera_list();
   //const prtg_list = await prtg.sensors_tree();
 
@@ -210,7 +190,7 @@ let xlsx_data = [
   //console.log(prtg_list.sensortree.nodes.group.probenode.group["6"].group["1"].device);
 
   //console.log("count:", cams_list.count);
-  //console.log(cams_list.cameras[0]);
+  //console.log(cams_list);
   //console.log(cams_list.cameras[1]);
 
   //const cam_url = new URL(cams_list.cameras[0].url);
@@ -220,12 +200,12 @@ let xlsx_data = [
 
   {
     //const dev_url = new URL(cams_list.cameras[0].url);
-    const device = new dahua({
-      host: "10.0.114.131",
-      port: 80,
-      user: "admin",
-      pass: "qwerty12345"
-    });
+    // const device = new dahua({
+    //   host: "10.0.114.131",
+    //   port: 80,
+    //   user: "admin",
+    //   pass: "qwerty12345"
+    // });
 
     //const ret1 = await device.get_channel_title();
     //const ret2 = await device.get_system_info();
@@ -250,24 +230,25 @@ let xlsx_data = [
   //   console.log(ret);
   // }  
 
-  // {
-  //   //const dev_url = new URL(cams_list.cameras[0].url);
-  //   //http://10.29.2.2/ISAPI/Streaming/channels/101/picture
-  //   const device = new dahua({
-  //     host: "10.29.18.68",
-  //     port: 80,
-  //     user: "aqmol",
-  //     pass: "aqmol12345"
-  //   });
+  {
+    //const dev_url = new URL(cams_list.cameras[0].url);
+    //http://10.29.2.2/ISAPI/Streaming/channels/101/picture
+    // const device = new dahua({
+    //   host: "10.29.21.3",
+    //   port: 80,
+    //   user: "aqmol",
+    //   pass: "aqmol12345"
+    // });
 
-  //   const ret1 = await device.picture(101);
-  //   const date_str = make_current_day_str();
-  //   const buffer = ret1;
-  //   fs.writeFile(`pic1_${date_str}.jpg`, buffer, err => {
-  //     if (err) { console.error(err); return; }
-  //     console.log(`Success computing`);
-  //   });
-  // }
+    //const ret1 = await device.device_info(101);
+    //console.log(ret1);
+    // const date_str = make_current_day_str();
+    // const buffer = ret1;
+    // fs.writeFile(`pic1_${date_str}.jpg`, buffer, err => {
+    //   if (err) { console.error(err); return; }
+    //   console.log(`Success computing`);
+    // });
+  }
 
   // {
   //   //const dev_url = new URL(cams_list.cameras[0].url);
@@ -477,7 +458,7 @@ let xlsx_data = [
 
   //   const final_index = index + 1 + 1; // индексируем с 1 + стартуем со второй строки
   //   let device_data = {};
-  //   const continueb = false;
+  //   let continueb = false;
   //   for (let i = 0; i < devices_data_fields.length; ++i) {
   //     const field_name = devices_data_fields[i];
   //     if (ignore_update_set.has(field_name)) continue;
@@ -559,6 +540,42 @@ let xlsx_data = [
 
   // в конце обновим сводную таблицу
   // при обновлении данных нужно как то обнаружить возможные ошибки
+
+  //const group = await prtg.find_group(2520);
+  let xlsx_data = [ [ "Номер объекта", "Название объекта", "Тип", "Адрес", "Маска", "Гейт", "Оборудование" ] ];
+  const { groups } = await prtg.get_child_groups(2520);
+  for (const group of groups) {
+    //console.log(group);
+    const id = group.name.split(" ")[0];
+    const name = get_rid_of_first_el(group.name.split(" ")).join(" ");
+    //console.log(name);
+    const { devices } = await prtg.get_child_devices(group.objid);
+    for (const device of devices) {
+      //console.log(device);
+      // const dev = new dahua({
+      //   host: device.host,
+      //   port: 80,
+      //   user: "aqmol", // ???
+      //   pass: "aqmol12345"
+      // });
+
+      const device_subnet = new subnet(`${device.host}/25`);
+      const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
+      xlsx_data.push([ id, name, type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
+    }
+
+    xlsx_data.push([]);
+  }
+
+  const { devices } = await prtg.get_child_devices(2504);
+  for (const device of devices) {
+    const device_subnet = new subnet(`${device.host}/25`);
+    const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
+    xlsx_data.push([ "12081", "Дом ребенка города Щучинск, ул. Боровская, 33", type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
+  }
+
+  const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
+  fs.writeFileSync("cam_data123.xlsx", buffer);
 })();
 
 // так что теперь? мы получаем список камер из ЕГСВ и пытаемся понять что перед нами: камера или рег?

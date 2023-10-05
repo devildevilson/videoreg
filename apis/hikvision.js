@@ -10,6 +10,7 @@ function make_sane_output_data(data, root_name) {
   let inner_data = data[root_name];
   let sane_data = {};
   for (const [ key, value ] of Object.entries(inner_data)) {
+    if (typeof value === "object" && Object.keys(value).length === 0) continue;
     if (key !== "_attributes" && !value._text) { console.log(value); throw `Need to implement data type for ${key} value`; }
     sane_data[key] = value._text;
   }

@@ -6,7 +6,6 @@
 -- и еще у нас будут разные регионы и разные сервера
 -- object_id например 12081, наверное может быть больше чем 5 символов, но вряд ли слишком большим
 -- скорее всего object_id будет определяющим
--- МАСКУ ДОБАВИТЬ
 CREATE TABLE IF NOT EXISTS `groups` (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT UNIQUE,
   parent_id BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -72,8 +71,9 @@ CREATE TABLE IF NOT EXISTS `devices` (
   admin_password VARCHAR(256) NOT NULL DEFAULT '',
   user_login VARCHAR(256) NOT NULL DEFAULT '',
   user_password VARCHAR(256) NOT NULL DEFAULT '',
-  channel_id CHAR(16) NOT NULL DEFAULT '',
+  channel_id INT UNSIGNED NOT NULL DEFAULT 0,
   rtsp_link TEXT NOT NULL,
+  sub_link TEXT NOT NULL,
   egsv_server VARCHAR(256) NOT NULL DEFAULT '',
   old_device BOOLEAN NOT NULL DEFAULT false,
   has_rtsp BOOLEAN NOT NULL DEFAULT true,

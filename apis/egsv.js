@@ -6,6 +6,11 @@ async function make_sane_post_request(self, url, data) {
   try {
     resp = await axios.post(url, data, { headers: self.headers });
   } catch (e) {
+    if (e.code === "ERR_BAD_REQUEST") {
+      console.log(e);
+      return undefined;
+    }
+    
     await self.auth();
 
     try {
@@ -47,7 +52,7 @@ egsv.prototype.camera_list = async function() {
   const get_camera_data = {
     can: [ "update", "delete", "archive" ],
     include: [ "server", "account" ],
-    filter: {},
+    filter: {}, //"$or": [ { name: { "$regex": "012053", "$options": "i" } } ]
     sort: {
       name: "asc",
       "data.description": "asc"
@@ -55,6 +60,60 @@ egsv.prototype.camera_list = async function() {
   };
 
   return make_sane_post_request(this, `${this.BASEURI}/v2/camera.list`, get_camera_data);
+};
+
+egsv.prototype.create_camera = async function() {
+  const camera_data = {
+    camera: {
+      api_connection: {
+        brc: {
+          details: {
+            max_keep_days: 10
+          },
+          mid: "600a47a12cec33053cb35d33"
+        }
+      },
+      secondary: {
+        url: "rtsp://test1402:Xstyle1402@10.23.8.50:554/cam/realmonitor?channel=1&subtype=0"
+      },
+      services: {
+        faceapi: false,
+        guard: false
+      },
+      archive: {
+        enable: true
+      },
+      ptz: {
+        enable: false
+      },
+      taxonomies: [],
+      latlng: [],
+      created_at: "2021-01-21T05:14:25.403Z",
+      updated_at: "2021-01-22T07:50:14.867Z",
+      name: "ptz 202.10",
+      url: "rtsp://test1402:Xstyle1402@10.23.8.50:554/cam/realmonitor?channel=1&subtype=0",
+      server: "5f9fca6f6996bb04b071c7cb",
+      data: {
+        description: "",
+        model: "other"
+      },
+      account: "5fe322f0a494fb133fb1ae95",
+      id: "600a47a12cec33053cb35d33"
+    }
+  };
+
+  // что нужно? url, name, description, server, taxonomies (как сделать?)
+  return make_sane_post_request(this, `${this.BASEURI}/v2/camera.create`, camera_data);
+};
+
+egsv.prototype.taxonomy_list = async function() {
+  const data = { can: [ "update", "delete" ] };
+  return make_sane_post_request(this, `${this.BASEURI}/v2/taxonomy.list`, data);
+};
+
+egsv.prototype.create_taxonomy = async function(name, parent_id) {
+  const data = { taxonomy: { name: name, parent: parent_id } };
+  return make_sane_post_request(this, `${this.BASEURI}/v2/taxonomy.create`, data);
 };
 
 module.exports = egsv;

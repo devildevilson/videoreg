@@ -13,8 +13,13 @@
     "@mhoc/axios-digest-auth": "^0.8.0",
     "axios": "^1.4.0",
     "dotenv": "^16.1.4",
+    "ffmpeg": "^0.0.4",
+    "google-auth-library": "^9.0.0",
+    "googleapis": "^122.0.0",
     "mysql2": "^3.4.3",
+    "node-ffmpeg-stream": "^1.1.0",
     "node-xlsx": "^0.23.0",
+    "tunnel-ssh": "^5.1.1",
     "xml-js": "^1.6.11"
   }
 }
