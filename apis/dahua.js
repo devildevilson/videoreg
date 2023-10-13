@@ -1,6 +1,8 @@
 const axios_digest = require("@mhoc/axios-digest-auth");
 const https = require('https');
 
+const timeout = 5000;
+
 // обычно это yyyy=XXXXX, где ХХХХХ - это то что нам нужно
 function single_line_resp(str) {
   const index = str.indexOf("=");
@@ -104,6 +106,10 @@ async function make_sane_return(func) {
       return { data: undefined, status: { code: -1, desc: `${e.code} ${e.reason}` } }
     }
 
+    if (e.message && e.message === "canceled") {
+      return { data: undefined, status: { code: -2, desc: e.message } }
+    }
+
     throw e;
   }
 }
@@ -143,6 +149,8 @@ function make_proto_method(obj, name, url, parse_func) {
         method: "GET",
         url: self.BASEURI + url,
         httpsAgent,
+        signal: AbortSignal.timeout(timeout),
+        timeout: timeout,
       });
 
       //console.log(response);

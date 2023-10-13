@@ -128,9 +128,17 @@ subnet.prototype.range = function(start, end) {
     [Symbol.iterator]: function() { return this; },
     next: function() {
       ip_counter += 1;
-      return ip_counter < max_num ? { done: false, value: num_to_ip(ip_counter) } : { done: true };
+      if (ip_counter >= max_num) return { done: true };
+      // может быть лучше возвращать сабнеты?
+      return { done: false, value: num_to_ip(ip_counter) };
     }
   };
+};
+
+subnet.prototype.toString = function() {
+  const subnet_num = this.subnet;
+  if (subnet_num === ipv4_size) return this.network;
+  return `${this.network}/${subnet_num}`;
 };
 
 subnet.prototype[Symbol.iterator] = function() {
@@ -139,7 +147,8 @@ subnet.prototype[Symbol.iterator] = function() {
   return {
     next: function() {
       ip_counter += 1;
-      return ip_counter < max_num ? { done: false, value: num_to_ip(ip_counter) } : { done: true };
+      if (ip_counter >= max_num) return { done: true };
+      return { done: false, value: num_to_ip(ip_counter) };
     }
   };
 };
@@ -173,13 +182,15 @@ subnet.prototype[Symbol.iterator] = function() {
 // //console.log(subnet1,":",subnet1_num,":",num_to_subnet_mask(subnet1_num));
 // //console.log(subnet2,":",subnet2_num,":",num_to_subnet_mask(subnet2_num));
 
-// const test = new subnet("10.0.118.1/25");
+// const test = new subnet("10.0.112.1/25");
 // //console.log(test);
 
-// // console.log(`Школа №14 адресация`);
-// // console.log(`Гейт: ${test.host_min_str}`);
-// // console.log(`Маска: ${test.mask_str}`);
-// // console.log(`Broadcast: ${test.broadcast_str}`);
-// // console.log(`Кнопка: ${num_to_ip(test.host_min+3)}`);
+// console.log(`Школа №1 адресация`);
+// console.log(`Гейт: ${test.host_min}`);
+// console.log(`Маска: ${test.mask}`);
+// console.log(`Broadcast: ${test.broadcast}`);
+// console.log(`Рег: ${num_to_ip(test.host_min_num+1)}`);
+// console.log(`Кнопка: ${num_to_ip(test.host_min_num+3)}`);
+// console.log(`Камеры: ${num_to_ip(test.host_min_num+10)} - ${num_to_ip(test.host_min_num+10+20)}`);
 
 module.exports = subnet;

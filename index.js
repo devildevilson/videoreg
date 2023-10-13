@@ -542,40 +542,67 @@ let xlsx_data = [
   // при обновлении данных нужно как то обнаружить возможные ошибки
 
   //const group = await prtg.find_group(2520);
-  let xlsx_data = [ [ "Номер объекта", "Название объекта", "Тип", "Адрес", "Маска", "Гейт", "Оборудование" ] ];
-  const { groups } = await prtg.get_child_groups(2520);
-  for (const group of groups) {
-    //console.log(group);
-    const id = group.name.split(" ")[0];
-    const name = get_rid_of_first_el(group.name.split(" ")).join(" ");
-    //console.log(name);
-    const { devices } = await prtg.get_child_devices(group.objid);
-    for (const device of devices) {
-      //console.log(device);
-      // const dev = new dahua({
-      //   host: device.host,
-      //   port: 80,
-      //   user: "aqmol", // ???
-      //   pass: "aqmol12345"
-      // });
+  // let xlsx_data = [ [ "Номер объекта", "Название объекта", "Тип", "Адрес", "Маска", "Гейт", "Оборудование" ] ];
+  // const { groups } = await prtg.get_child_groups(2520);
+  // for (const group of groups) {
+  //   //console.log(group);
+  //   const id = group.name.split(" ")[0];
+  //   const name = get_rid_of_first_el(group.name.split(" ")).join(" ");
+  //   //console.log(name);
+  //   const { devices } = await prtg.get_child_devices(group.objid);
+  //   for (const device of devices) {
+  //     //console.log(device);
+  //     // const dev = new dahua({
+  //     //   host: device.host,
+  //     //   port: 80,
+  //     //   user: "aqmol", // ???
+  //     //   pass: "aqmol12345"
+  //     // });
 
-      const device_subnet = new subnet(`${device.host}/25`);
-      const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
-      xlsx_data.push([ id, name, type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
-    }
+  //     const device_subnet = new subnet(`${device.host}/25`);
+  //     const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
+  //     xlsx_data.push([ id, name, type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
+  //   }
 
-    xlsx_data.push([]);
-  }
+  //   xlsx_data.push([]);
+  // }
 
-  const { devices } = await prtg.get_child_devices(2504);
-  for (const device of devices) {
-    const device_subnet = new subnet(`${device.host}/25`);
-    const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
-    xlsx_data.push([ "12081", "Дом ребенка города Щучинск, ул. Боровская, 33", type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
-  }
+  // const { devices } = await prtg.get_child_devices(2504);
+  // for (const device of devices) {
+  //   const device_subnet = new subnet(`${device.host}/25`);
+  //   const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
+  //   xlsx_data.push([ "12081", "Дом ребенка города Щучинск, ул. Боровская, 33", type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
+  // }
 
-  const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
-  fs.writeFileSync("cam_data123.xlsx", buffer);
+  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
+  // fs.writeFileSync("cam_data123.xlsx", buffer);
+
+  // const hikvision_datas = [
+  //   { host: "192.10.16.2", port: 80, user: "admin", pass: "qwerty123456" },
+  //   //{ host: "10.4.0.1", port: 4565, user: "admin1", pass: "12345asd", actual_address: "192.168.1.186" },
+  //   //{ host: "10.4.0.1", port: 4566, user: "admin", pass: "Ad12345678", actual_address: "192.168.2.100" },
+  //   //{ host: "192.12.43.3", port: 80, user: "admin", pass: "admin12345" },
+  // ];
+
+  // let xlsx_data = [ [ "address", "user", "pass", "actual_address", "status", "manufacturer", "model" ] ];
+  // for (const data of hikvision_datas) {
+  //   const dev = new hikvision(data);
+  //   const resp = await dev.device_info();
+  //   //console.log(resp);
+  //   xlsx_data.push([ data.host, data.user, data.pass, data.actual_address, resp.status.code, "Hikvision", resp.data ? resp.data.type+" "+resp.data.model : undefined ]);
+  // }
+
+  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
+  // fs.writeFileSync("hikvision_devices.xlsx", buffer);
+
+  const device = new hikvision({ host: "192.12.70.4", port: 80, user: "admin", pass: "qwerty12345" });
+  {const resp = await device.streaming_params(101);
+  console.log(resp.data);}
+  {const resp = await device.set_streaming_params(101, 1280, 720, 1024, 15);
+  console.log(resp.data);}
+  {const resp = await device.streaming_params(101);
+  console.log(resp.data);}
+
 })();
 
 // так что теперь? мы получаем список камер из ЕГСВ и пытаемся понять что перед нами: камера или рег?
