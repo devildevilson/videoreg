@@ -153,6 +153,9 @@ subnet.prototype[Symbol.iterator] = function() {
   };
 };
 
+subnet.is_ip_address = function(str) { return ip_regex.test(str); };
+subnet.is_subnet_address = function(str) { return ip_with_mask.test(str); };
+
 //const subnet_test = new subnet("10.0.29.123/25");
 //console.log(subnet_test);
 // // console.log(subnet_test.at(3));

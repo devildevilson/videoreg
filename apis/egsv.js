@@ -7,8 +7,9 @@ async function make_sane_post_request(self, url, data) {
     resp = await axios.post(url, data, { headers: self.headers });
   } catch (e) {
     if (e.code === "ERR_BAD_REQUEST") {
-      console.log(e);
-      return undefined;
+      //console.log(e);
+      //return undefined;
+      throw e;
     }
     
     await self.auth();
@@ -16,8 +17,9 @@ async function make_sane_post_request(self, url, data) {
     try {
       resp = await axios.post(url, data, { headers: self.headers });
     } catch (err) {
-      console.log(err);
-      return undefined;
+      //console.log(err);
+      //return undefined;
+      throw err;
     }
   }
 
@@ -106,6 +108,13 @@ egsv.prototype.create_camera = async function() {
   return make_sane_post_request(this, `${this.BASEURI}/v2/camera.create`, camera_data);
 };
 
+egsv.prototype.update_camera = function(update_data) {
+  let update_data1 = update_data;
+  //update_data1.id = camera_id;
+  const data = { merge: true, camera: update_data1 };
+  return make_sane_post_request(this, `${this.BASEURI}/v2/camera.update`, data);
+}
+
 egsv.prototype.taxonomy_list = async function() {
   const data = { can: [ "update", "delete" ] };
   return make_sane_post_request(this, `${this.BASEURI}/v2/taxonomy.list`, data);
@@ -114,6 +123,50 @@ egsv.prototype.taxonomy_list = async function() {
 egsv.prototype.create_taxonomy = async function(name, parent_id) {
   const data = { taxonomy: { name: name, parent: parent_id } };
   return make_sane_post_request(this, `${this.BASEURI}/v2/taxonomy.create`, data);
+};
+
+egsv.prototype.server_list = async function() {
+  const data = { include: [ "version", "info" ] }; //"id", "name", 
+  return make_sane_post_request(this, `${this.BASEURI}/v2/server.list`, data);
+};
+
+egsv.prototype.sync_server = async function(server_id) {
+  const data = { server: { id: server_id }, upload: false, download: true, delete: false };
+  return make_sane_post_request(this, `${this.BASEURI}/v2/server.sync`, data);
+};
+
+egsv.prototype.create_server = async function(host, port, name, username = "user", password = "q1w2e3r4t5", files_strategy = "default") {
+  const data = { 
+    server: { 
+      edge_proxy: { enable: true },
+      protocol: 'http',
+      api_connection: {
+        driver: 'VitEDGE',
+        // egsv2: {
+        //   default_account: '650160e47dc13446b1009574', // ??
+        //   upload: 'auto',
+        //   download: 'auto'
+        // },
+        vit_edge: {
+          username,
+          password,
+          files_strategy
+        },
+        //argus: { download: 'auto' }
+      },
+      host,
+      port,
+      name, 
+    } 
+  };
+  return make_sane_post_request(this, `${this.BASEURI}/v2/server.create`, data);
+};
+
+egsv.prototype.update_server = async function(update_data) {
+  let update_data1 = update_data;
+  //update_data1.id = server_id;
+  const data = { server: update_data1 };
+  return make_sane_post_request(this, `${this.BASEURI}/v2/server.update`, data);
 };
 
 module.exports = egsv;

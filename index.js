@@ -595,13 +595,142 @@ let xlsx_data = [
   // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
   // fs.writeFileSync("hikvision_devices.xlsx", buffer);
 
-  const device = new hikvision({ host: "192.12.70.4", port: 80, user: "admin", pass: "qwerty12345" });
-  {const resp = await device.streaming_params(101);
-  console.log(resp.data);}
-  {const resp = await device.set_streaming_params(101, 1280, 720, 1024, 15);
-  console.log(resp.data);}
-  {const resp = await device.streaming_params(101);
-  console.log(resp.data);}
+  // const device = new hikvision({ host: "192.12.70.4", port: 80, user: "admin", pass: "qwerty12345" });
+  // {const resp = await device.streaming_params(101);
+  // console.log(resp.data);}
+  // {const resp = await device.set_streaming_params(101, 1280, 720, 1024, 15);
+  // console.log(resp.data);}
+  // {const resp = await device.streaming_params(101);
+  // console.log(resp.data);}
+
+  // const rtms_egsv = new egsv_api({
+  //   host: "10.0.67.150",
+  //   port: "4080",
+  //   user: "LemeshevA",
+  //   pass: "!Q2w3e4r"
+  // });
+
+  //const list1 = await rtms_egsv.server_list();
+  //console.log(list.servers);
+  //console.log(list.servers[0].api_connection);
+  // let xlsx_data = [ [ "id", "host", "name", "driver", "user", "pass", "default_account" ] ];
+  // for (const server of list.servers) {
+  //   xlsx_data.push([ server.id, server.host, server.name, server.api_connection.driver, server.api_connection.vit_edge.username, server.api_connection.vit_edge.password, server.api_connection.egsv2.default_account ]);
+  // }
+
+  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
+  // fs.writeFileSync("rtms_devices.xlsx", buffer);
+
+
+  const rtms_egsv2 = new egsv_api({
+    host: "10.4.1.200",
+    port: "4080",
+    user: "andreylemeshev",
+    pass: "andreylemeshev"
+  });
+
+  let existing_servers_host = {};
+  let existing_servers_name = {};
+  let existing_taxonomies_name = {};
+  const list = await rtms_egsv2.server_list();
+  const tlist = await rtms_egsv2.taxonomy_list();
+  for (const server of list.servers) {
+    existing_servers_name[server.name] = server.id;
+    existing_servers_host[server.host] = server.id;
+  }
+
+  for (const taxonomy of tlist.taxonomies) {
+    existing_taxonomies_name[taxonomy.name] = taxonomy.id;
+  }
+
+  const known_devices = xlsx.parse("devices.xlsx");
+  // for (const row of known_devices[0].data) {
+  //   const [ num, id, name, city, link, address, vpn_address, coords, device_number, uuid ] = row; // пока так
+  //   if (!id) continue;
+  //   if (!name) continue;
+  //   if (id === "№") continue;
+
+  //   const taxonomy_name = `${id} ${name}`;
+  //   if (existing_taxonomies_name[taxonomy_name]) continue;
+  //   const resp = await rtms_egsv2.create_taxonomy(taxonomy_name);
+  //   console.log(resp.taxonomy.id, resp.taxonomy.name);
+  // }
+  for (const row of known_devices[0].data) {
+    const [ num, id, name, city, link, address, vpn_address, coords, device_number, uuid ] = row; // пока так
+    console.log(`${id} ${name}`);
+    if (!subnet.is_ip_address(address)) continue;
+
+    const server_name = `${id} ${device_number ? device_number : "???"}`;
+    const taxonomy_name = `${id} ${name}`;
+    const t_id = existing_taxonomies_name[taxonomy_name];
+    if (!t_id) throw `Could not find taxonomy ${taxonomy_name}`;
+
+    let server_id = undefined;
+    if (!existing_servers_name[server_name] && !existing_servers_host[address]) {
+      const resp = await rtms_egsv2.create_server(address, 8081, server_name);
+      //console.log(resp.server.name, resp.server.id);
+      server_id = resp.server.id;
+    } else if (existing_servers_name[server_name] && !existing_servers_host[address]) {
+      server_id = existing_servers_name[server_name];
+
+      const username = "user";
+      const password = "q1w2e3r4t5";
+      const files_strategy = "default";
+      const update_data = { id: server_id, api_connection: { driver: 'VitEDGE', vit_edge: { username, password, files_strategy } }, name: server_name, host: address, port: 8081 };
+      const resp2 = await rtms_egsv2.update_server(update_data);
+
+    } else if (!existing_servers_name[server_name] && existing_servers_host[address]) {
+
+      server_id = existing_servers_host[address];
+    } else {
+      server_id = existing_servers_host[address];
+    }
+
+    if (!server_id) throw `Could not get server_id from host '${address}', server name '${server_name}'`;
+
+    let synced_cameras = [];
+    try {
+      const resp1 = await rtms_egsv2.sync_server(server_id);
+      synced_cameras = resp1.downloaded;
+    } catch(e) {
+      if (e.response) {
+        console.log("server1", e.response.data, e.response.status, e.response.statusText);
+        //if (e.response.data.error.indexOf("status code 401") !== -1) continue;
+        if (e.response.data.error.indexOf("timeout of ") !== -1) continue;
+        if (e.response.data.error.indexOf("EHOSTUNREACH") !== -1) continue;
+      }
+      else console.log(e);
+
+      console.log("Trying admin login/pass");
+      const username = "admin"; 
+      const password = "q1w2e3r4t5";
+      const files_strategy = "default";
+      const update_data = { id: server_id, api_connection: { driver: 'VitEDGE', vit_edge: { username, password, files_strategy } }, name: server_name, host: address, port: 8081 };
+      const resp2 = await rtms_egsv2.update_server(update_data);
+
+      try {
+        const resp1 = await rtms_egsv2.sync_server(server_id);
+        synced_cameras = resp1.downloaded;
+      } catch(e) {
+        if (e.response) console.log("server2", e.response.data, e.response.status, e.response.statusText);
+        else console.log(e);
+      }
+    }
+
+      //console.log(resp1);
+    for (const camera of synced_cameras) {
+      const camera_id = camera.id;
+      const latlng = coords ? coords.split(",").map(lat => lat.trim()) : undefined;
+      const camera_data = { id: camera_id, data: { description: name }, taxonomies: [ t_id ], latlng };
+      try {
+        const resp2 = await rtms_egsv2.update_camera(camera_data);
+      } catch (e) {
+        //console.log(latlng);
+        if (e.response) console.log("camera", e.response.data, e.response.status, e.response.statusText);
+        else console.log(e);
+      }
+    }
+  }
 
 })();
 
