@@ -135,6 +135,18 @@ subnet.prototype.range = function(start, end) {
   };
 };
 
+subnet.prototype.next_subnet = function() {
+  const num32_mask = 0xffffffff;
+  const broadcast_num = this.broadcast_num !== num32_mask ? this.broadcast_num+1 : 0;
+  return new subnet(`${num_to_ip(broadcast_num+1)}/${this.subnet}`);
+};
+
+subnet.prototype.prev_subnet = function() {
+  const num32_mask = 0xffffffff;
+  const network_num = this.network_num !== 0 ? this.network_num-1 : num32_mask;
+  return new subnet(`${num_to_ip(network_num-1)}/${this.subnet}`);
+};
+
 subnet.prototype.toString = function() {
   const subnet_num = this.subnet;
   if (subnet_num === ipv4_size) return this.network;
@@ -195,5 +207,10 @@ subnet.is_subnet_address = function(str) { return ip_with_mask.test(str); };
 // console.log(`Рег: ${num_to_ip(test.host_min_num+1)}`);
 // console.log(`Кнопка: ${num_to_ip(test.host_min_num+3)}`);
 // console.log(`Камеры: ${num_to_ip(test.host_min_num+10)} - ${num_to_ip(test.host_min_num+10+20)}`);
+
+// const sub1 = new subnet("10.29.32.32/28");
+// const sub2 = sub1.next_subnet();
+// console.log(sub1);
+// console.log(sub2);
 
 module.exports = subnet;

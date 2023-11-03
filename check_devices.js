@@ -13,7 +13,7 @@ const fs = require("fs");
 const filename = "devices.xlsx";
 const devices_file = xlsx.parse(filename);
 //console.log(devices_file);
-const schools = devices_file[2]; // данные по школам
+const schools = devices_file[1]; // данные по школам
 const computed_length = schools.data.reduce((accumulator, row) => row[0] ? accumulator + 1 : accumulator, 0);
 console.log(computed_length);
 
@@ -89,6 +89,8 @@ async function get_devices_info(xlsx_arr, out_arr) { // device_func, provider
     const [ num, name, coords, net_provider, address, login, password, cameras_count ] = row;
     if (typeof login !== "string" || (typeof login === "string" && login.trim() === "")) continue;
     if (typeof password !== "string" || (typeof password === "string" && password.trim() === "")) continue;
+
+    if (net_provider.trim() !== "Сапа Телеком") continue;
 
     // const dev = new device_func({
     //   host: address,
@@ -231,6 +233,34 @@ function load_taxonomies() {
   return obj;
 }
 
+function load_taxonomies() {
+  const taxonomies = xlsx.parse("taxonomies.xlsx");
+  let obj = {};
+  for (const row of taxonomies[0].data) {
+    if (typeof row[0] !== "string") continue;
+    if (row[0] === "name") continue;
+
+    const [ name, id, parent_id ] = row;
+    obj[name] = { id, parent_id };
+  }
+
+  return obj;
+}
+
+function load_taxonomies2() {
+  const taxonomies = xlsx.parse("taxonomies2.xlsx");
+  let obj = {};
+  for (const row of taxonomies[0].data) {
+    if (typeof row[0] !== "string") continue;
+    if (row[0] === "name") continue;
+
+    const [ name, id, parent_id ] = row;
+    obj[name] = { id, parent_id };
+  }
+
+  return obj;
+}
+
 function make_good_num(num) {
   return num < 10 ? "0"+num : ""+num;
 }
@@ -251,7 +281,7 @@ function make_good_num(num) {
   //const buffer = xlsx.build([{name: 'list1', data: xlsx_out}]);
   //fs.writeFileSync("devices_out2.xlsx", buffer);
 
-  // const subnets = [ new subnet("192.12.0.0/16"), new subnet("192.10.0.0/16"), new subnet("10.2.0.0/17"), new subnet("192.11.0.0/16"), new subnet("192.180.0.0/16") ];
+  // const subnets = [ new subnet("192.12.0.0/16"), new subnet("192.10.0.0/16"), new subnet("10.2.0.0/17"), new subnet("10.20.0.0/16"), new subnet("192.11.0.0/16"), new subnet("192.180.0.0/16") ];
 
   // let connections = await check_connection(schools.data);
   // for (let i = 1; i < connections.length; ++i) {
@@ -370,29 +400,93 @@ function make_good_num(num) {
   // fs.writeFileSync("known_devices_egsv_data.xlsx", buffer);
   // }
 
-  for (const row of schools.data) {
-    const [ num, name, coords, net_provider, address, login, password, cameras_count, status, type, status2, manufacturer ] = row;
-    if (!manufacturer || manufacturer !== "Hikvision") continue;
-    if (!status2 || status2 !== "Доступен") continue;
-    if (!address) continue;
-    if (!login) continue;
-    if (!password) continue;
+  // for (const row of schools.data) {
+  //   const [ num, name, coords, net_provider, address, login, password, cameras_count, status, type, status2, manufacturer ] = row;
+  //   if (!manufacturer || manufacturer !== "Hikvision") continue;
+  //   if (!status2 || status2 !== "Доступен") continue;
+  //   if (!address) continue;
+  //   if (!login) continue;
+  //   if (!password) continue;
 
-    const device = new hikvision({ host: address, port: 80, user: login, pass: password });
-    //const resp = await device.streaming_params(101);
-    let resp = {};
-    for (let i = 0; i < cameras_count; ++i) {
-      const channel_id = `${i+1}01`;
-      resp = await device.set_streaming_params(channel_id, 1280, 720, 1024, 15);
-      if (resp.status.code !== 200) break;
-      const sub_channel_id = `${i+1}02`;
-      resp = await device.set_streaming_params(sub_channel_id, 352, 288, 512, 15);
-      //break;
-    }
-    //console.log(resp.status);
-    console.log(num,"|",name,"|",address,"|",resp.status);
+  //   const device = new hikvision({ host: address, port: 80, user: login, pass: password });
+  //   //const resp = await device.streaming_params(101);
+  //   let resp = {};
+  //   for (let i = 0; i < cameras_count; ++i) {
+  //     const channel_id = `${i+1}01`;
+  //     resp = await device.set_streaming_params(channel_id, 1280, 720, 1024, 15);
+  //     if (resp.status.code !== 200) break;
+  //     const sub_channel_id = `${i+1}02`;
+  //     resp = await device.set_streaming_params(sub_channel_id, 352, 288, 512, 15);
+  //     //break;
+  //   }
+  //   //console.log(resp.status);
+  //   console.log(num,"|",name,"|",address,"|",resp.status);
+  //   //break;
+  // }
+
+  const egsv = new egsv_api({
+    host: process.env.EGSV_HOST2,
+    port: process.env.EGSV_PORT2,
+    user: process.env.EGSV_USER2,
+    pass: process.env.EGSV_PASS2
+  });
+
+  // let provider_school = {};
+  // for (const row of schools.data) {
+  //   if (!row[0]) continue;
+  //   if (!is_numeric(row[0])) continue;
+
+  //   const [ num, name, coords, net_provider, address, login, password, cameras_count, status, type, status2, manufacturer ] = row;
+  //   if (!provider_school[net_provider]) provider_school[net_provider] = [];
+  //   provider_school[net_provider].push({
+  //     num, name, coords, net_provider, address, login, password, cameras_count, status, type, status2, manufacturer
+  //   });
+  // }
+
+  // let unique_list = {};
+  // let taxonomies2 = [ [ "name", "id", "parent_id" ] ];
+  // const resp1 = await egsv.create_taxonomy("Школы (по провайдерам)");
+  // const main_tax = { name: resp1.taxonomy.name, id: resp1.taxonomy.id };
+  // taxonomies2.push( [ resp1.taxonomy.name, resp1.taxonomy.id ] );
+  // const known_taxonomies = xlsx.parse("taxonomies.xlsx");
+  // for (const [ net_provider, obj_arr ] of Object.entries(provider_school)) {
+  //   const resp1 = await egsv.create_taxonomy(net_provider, main_tax.id);
+  //   const net_provider_tax = { name: resp1.taxonomy.name, id: resp1.taxonomy.id };
+  //   taxonomies2.push( [ net_provider_tax.name, net_provider_tax.id, main_tax.id ] );
+  //   console.log(net_provider_tax.name);
+  //   for (const obj of obj_arr) {
+  //     if (unique_list[obj.name]) continue;
+  //     unique_list[obj.name] = true;
+
+  //     const resp1 = await egsv.create_taxonomy(obj.name, net_provider_tax.id);
+  //     const tax = { name: resp1.taxonomy.name, id: resp1.taxonomy.id };
+  //     taxonomies2.push( [ tax.name, tax.id, net_provider_tax.id ] );
+  //   }
+  // }
+
+  // const buffer = xlsx.build([{name: 'list1', data: taxonomies2}]);
+  // fs.writeFileSync("taxonomies2.xlsx", buffer);
+
+  const taxes = load_taxonomies();
+  const taxes2 = load_taxonomies2();
+  const list = await egsv.camera_list();
+  let counter = 0;
+  for (const camera of list.cameras) {
+    if (camera.taxonomies.length === 0) continue;
+    //console.log(camera);
+    //console.log(taxes[camera.data.description]);
+    //console.log(taxes2[camera.data.description]);
+    const tax1 = taxes[camera.data.description];
+    const tax2 = taxes2[camera.data.description];
+    if (!tax1 || !tax2) { console.log(`Not found ${camera.data.description}`); continue; }
+    const data = { id: camera.id, taxonomies: [ tax1.id, tax2.id ] };
+    await egsv.update_camera(data);
+    ++counter;
+
     //break;
   }
+
+  console.log(`Updated ${counter} cameras, cameras count ${list.cameras.length}`);
 
   //await db.close();
 })();

@@ -656,7 +656,7 @@ let xlsx_data = [
   //   console.log(resp.taxonomy.id, resp.taxonomy.name);
   // }
   for (const row of known_devices[0].data) {
-    const [ num, id, name, city, link, address, vpn_address, coords, device_number, uuid ] = row; // пока так
+    const [ num, id, name, city, link, address, link2, vpn_address, coords, device_number, uuid ] = row; // пока так
     console.log(`${id} ${name}`);
     if (!subnet.is_ip_address(address)) continue;
 
