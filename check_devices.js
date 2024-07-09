@@ -467,26 +467,39 @@ function make_good_num(num) {
   // const buffer = xlsx.build([{name: 'list1', data: taxonomies2}]);
   // fs.writeFileSync("taxonomies2.xlsx", buffer);
 
-  const taxes = load_taxonomies();
-  const taxes2 = load_taxonomies2();
-  const list = await egsv.camera_list();
-  let counter = 0;
-  for (const camera of list.cameras) {
-    if (camera.taxonomies.length === 0) continue;
-    //console.log(camera);
-    //console.log(taxes[camera.data.description]);
-    //console.log(taxes2[camera.data.description]);
-    const tax1 = taxes[camera.data.description];
-    const tax2 = taxes2[camera.data.description];
-    if (!tax1 || !tax2) { console.log(`Not found ${camera.data.description}`); continue; }
-    const data = { id: camera.id, taxonomies: [ tax1.id, tax2.id ] };
-    await egsv.update_camera(data);
-    ++counter;
+  // const taxes = load_taxonomies();
+  // const taxes2 = load_taxonomies2();
+  // const list = await egsv.camera_list();
+  // let counter = 0;
+  // for (const camera of list.cameras) {
+  //   if (camera.taxonomies.length === 0) continue;
+  //   //console.log(camera);
+  //   //console.log(taxes[camera.data.description]);
+  //   //console.log(taxes2[camera.data.description]);
+  //   const tax1 = taxes[camera.data.description];
+  //   const tax2 = taxes2[camera.data.description];
+  //   if (!tax1 || !tax2) { console.log(`Not found ${camera.data.description}`); continue; }
+  //   const data = { id: camera.id, taxonomies: [ tax1.id, tax2.id ] };
+  //   await egsv.update_camera(data);
+  //   ++counter;
 
-    //break;
+  //   //break;
+  // }
+
+  // console.log(`Updated ${counter} cameras, cameras count ${list.cameras.length}`);
+
+  let links = [];
+  for (const row of devices_file[0].data) {
+    if (!row[0]) continue;
+    if (!subnet.is_ip_address(row[6])) continue;
+
+    const [ num, name, desc, city, link1, address, camera_address, link2, openvpn, coords ] = row;
+    const ls = make_rtsp_link["Dahua"]("admin", "adm12345", camera_address, 0);
+    links.push([ name+" "+desc, desc, ls[0], ls[1], coords ]);
   }
 
-  console.log(`Updated ${counter} cameras, cameras count ${list.cameras.length}`);
+  const buffer = xlsx.build([{name: 'list1', data: links}]);
+  fs.writeFileSync("view_cameras.xlsx", buffer);
 
   //await db.close();
 })();

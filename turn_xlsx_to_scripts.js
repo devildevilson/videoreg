@@ -10,7 +10,7 @@ const subnet = require("./apis/subnet");
 const xlsx = require("node-xlsx");
 const fs = require("fs");
 
-const file_name = "для_виктора.xlsx";
+const file_name = "victor.xlsx";
 const file_data = xlsx.parse(file_name);
 
 const ip_regex = /^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$/;
@@ -38,8 +38,8 @@ const good_num = (num) => num < 10 ? "0"+num : ""+num;
     if (typeof index !== "number") continue;
 
     files_data[index].addresses.push({
-      local_address: row[0],
-      remote_address: row[1] ? row[1] : ""
+      local_address: row[0].trim(),
+      remote_address: row[1] ? row[1].trim() : ""
     });
   }
 
@@ -70,3 +70,4 @@ const good_num = (num) => num < 10 ? "0"+num : ""+num;
 
   console.log(`Files count ${counter}`);
 })();
+

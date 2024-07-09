@@ -162,11 +162,25 @@ prtg.prototype.get_child_sensors = async function(device_id) {
   return resp.data;
 };
 
+prtg.prototype.get_sensors_by_tags = async function(tag) {
+  const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+  const api_url = `${this.BASEURI}/api/table.json?content=sensors&columns=objid,name,active,parent,parentid,status&count=*&filter_tags=@tag(${tag})${this.auth_part_amp}`;
+  const resp = await axios.get(api_url, { httpsAgent });
+  return resp.data;
+};
+
 prtg.prototype.find_group = async function(group_id) {
   const httpsAgent = new https.Agent({ rejectUnauthorized: false });
   const api_url = `${this.BASEURI}/api/table.json?content=groups&columns=objid,name,active,parent,parentid&count=*&filter_objid=${group_id}${this.auth_part_amp}`;
   const resp = await axios.get(api_url, { httpsAgent });
   return resp.data.groups && resp.data.groups.length !== 0 ? resp.data.groups[0] : undefined;
+};
+
+prtg.prototype.find_device = async function(device_id) {
+  const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+  const api_url = `${this.BASEURI}/api/table.json?content=devices&columns=objid,name,active,parent,parentid&count=*&filter_objid=${device_id}${this.auth_part_amp}`;
+  const resp = await axios.get(api_url, { httpsAgent });
+  return resp.data.devices && resp.data.devices.length !== 0 ? resp.data.devices[0] : undefined;
 };
 
 prtg.prototype.find_device_by_host = async function(host) {

@@ -9,8 +9,8 @@ const prtg_api = require("./apis/prtg");
 const xlsx = require("node-xlsx");
 const subnet = require("./apis/subnet");
 
-const file_name = "для_виктора.xlsx";
-const file_data = xlsx.parse(file_name);
+// const file_name = "для_виктора.xlsx";
+// const file_data = xlsx.parse(file_name);
 
 const ip_regex = /^((25[0-5]|(2[0-4]|1[0-9]|[1-9]|)[0-9])(\.(?!$)|$)){4}$/;
 const is_ip_address = str => ip_regex.test(str);
@@ -18,30 +18,30 @@ const good_num = (num) => num < 10 ? "0"+num : ""+num;
 
 // как найти группу в пртг по имени?
 const object_id = "12085";
-const prtg_group_id = 2641; // object
+const prtg_group_id = 2978; // object
 const prtg_copy_object = 4107; // camera
 const devices = `
-10.0.112.11 CAM
-10.0.112.12 CAM
-10.0.112.13 CAM
-10.0.112.14 CAM
-10.0.112.15 CAM
-10.0.112.16 CAM
-10.0.112.17 CAM
-10.0.112.18 CAM
-10.0.112.19 CAM
-10.0.112.30 CAM
-10.0.112.31 CAM
-10.0.112.32 CAM
-10.0.112.33 CAM
-10.0.112.34 CAM
-10.0.112.35 CAM
-10.0.112.36 CAM
-10.0.112.37 CAM
-10.0.112.38 CAM
-10.0.112.39 CAM
-10.0.112.30 CAM
-10.0.112.31 CAM
+10.29.10.131 CAM
+10.29.10.132 CAM
+10.29.10.133 CAM
+10.29.10.134 CAM
+10.29.10.135 CAM
+10.29.10.136 CAM
+10.29.10.137 CAM
+10.29.10.138 CAM
+10.29.10.139 CAM
+10.29.10.140 CAM
+10.29.10.141 CAM
+10.29.10.142 CAM
+10.29.10.143 CAM
+10.29.10.144 CAM
+10.29.10.145 CAM
+10.29.10.146 CAM
+10.29.10.147 CAM
+10.29.10.148 CAM
+10.29.10.149 CAM
+10.29.10.150 CAM
+10.29.10.151 CAM
 `;
 
 (async () => {

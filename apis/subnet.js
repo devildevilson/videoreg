@@ -165,10 +165,10 @@ subnet.prototype[Symbol.iterator] = function() {
   };
 };
 
-subnet.is_ip_address = function(str) { return ip_regex.test(str); };
-subnet.is_subnet_address = function(str) { return ip_with_mask.test(str); };
+subnet.is_ip_address = function(str) { return str && str !== "" && ip_regex.test(str); };
+subnet.is_subnet_address = function(str) { return  str && str !== "" && ip_with_mask.test(str); };
 
-//const subnet_test = new subnet("10.0.29.123/25");
+//const subnet_test = new subnet("10.15.27.183/24");
 //console.log(subnet_test);
 // // console.log(subnet_test.at(3));
 // for (const ip_address of subnet_test.range(2, 5)) {
@@ -197,10 +197,8 @@ subnet.is_subnet_address = function(str) { return ip_with_mask.test(str); };
 // //console.log(subnet1,":",subnet1_num,":",num_to_subnet_mask(subnet1_num));
 // //console.log(subnet2,":",subnet2_num,":",num_to_subnet_mask(subnet2_num));
 
-// const test = new subnet("10.0.112.1/25");
-// //console.log(test);
-
-// console.log(`Школа №1 адресация`);
+// const test = new subnet("10.0.120.129/25");
+// console.log(`Школа №19 адресация`);
 // console.log(`Гейт: ${test.host_min}`);
 // console.log(`Маска: ${test.mask}`);
 // console.log(`Broadcast: ${test.broadcast}`);

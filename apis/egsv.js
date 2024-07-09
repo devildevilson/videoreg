@@ -64,6 +64,10 @@ egsv.prototype.camera_list = async function() {
   return make_sane_post_request(this, `${this.BASEURI}/v2/camera.list`, get_camera_data);
 };
 
+egsv.prototype.camera_list_filter = async function(filter) {
+  return make_sane_post_request(this, `${this.BASEURI}/v2/camera.list`, filter);
+};
+
 egsv.prototype.create_camera = async function() {
   const camera_data = {
     camera: {
@@ -167,6 +171,14 @@ egsv.prototype.update_server = async function(update_data) {
   //update_data1.id = server_id;
   const data = { server: update_data1 };
   return make_sane_post_request(this, `${this.BASEURI}/v2/server.update`, data);
+};
+
+egsv.prototype.rtms_number_list = async function(data) {
+  return make_sane_post_request(this, `${this.BASEURI}/v2/rtms.number.list`, data);
+};
+
+egsv.prototype.method = async function(method, data) {
+  return make_sane_post_request(this, `${this.BASEURI}/v2/${method}`, data);
 };
 
 module.exports = egsv;

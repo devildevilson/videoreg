@@ -20,6 +20,7 @@
     "node-ffmpeg-stream": "^1.1.0",
     "node-xlsx": "^0.23.0",
     "tunnel-ssh": "^5.1.1",
-    "xml-js": "^1.6.11"
+    "xml-js": "^1.6.11",
+    "zabbix-promise": "^2.0.2"
   }
 }
