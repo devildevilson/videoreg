@@ -3,25 +3,25 @@ const https = require("https");
 
 async function make_sane_post_request(self, url, data) {
   let resp = {};
-  try {
+  //try {
     resp = await axios.post(url, data, { headers: self.headers });
-  } catch (e) {
-    if (e.code === "ERR_BAD_REQUEST") {
-      //console.log(e);
-      //return undefined;
-      throw e;
-    }
+  // } catch (e) {
+  //   if (e.code === "ERR_BAD_REQUEST") {
+  //     //console.log(e);
+  //     //return undefined;
+  //     throw e;
+  //   }
     
-    await self.auth();
+  //   await self.auth();
 
-    try {
-      resp = await axios.post(url, data, { headers: self.headers });
-    } catch (err) {
-      //console.log(err);
-      //return undefined;
-      throw err;
-    }
-  }
+  //   try {
+  //     resp = await axios.post(url, data, { headers: self.headers });
+  //   } catch (err) {
+  //     //console.log(err);
+  //     //return undefined;
+  //     throw err;
+  //   }
+  // }
 
   return resp.data;
 }
@@ -46,7 +46,7 @@ egsv.prototype.auth = async function() {
   const resp = await axios.post(`${this.BASEURI}/v2/account.login`, auth_data);
   this.token = resp.data.token;
   this.headers = { "Authorization": `Bearer ${this.token}` };
-  return this.headers;
+  return this;
 };
 
 // получить все доступные камеры

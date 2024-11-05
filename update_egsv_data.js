@@ -15,6 +15,8 @@ const prtg_api = require("./apis/prtg");
     pass: process.env.EGSV_PASS
   });
 
+  await egsv.auth();
+
   const cams_list = await egsv.camera_list();
 
   let counter = 0;

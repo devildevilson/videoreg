@@ -14,3 +14,7 @@ victor_script/
 *.txt
 *.mp4
 jwt.keys.json
+*.csv
+*.json
+*.dav
+*.sql

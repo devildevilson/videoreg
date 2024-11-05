@@ -12,8 +12,13 @@ const fs = require("fs");
 //const google = require("./apis/google").config("jwt.keys.json");
 const crypto = require("crypto");
 const zabbix_api = require("./apis/zabbix");
+const axios_digest = require("@mhoc/axios-digest-auth");
+const http = require('http');
+const mjpeg = require("./apis/mjpeg");
 
 const zabbix_aqt = new zabbix_api({ host: "10.4.1.49", token: process.env.ZABBIX_AQT_API_TOKEN });
+const zabbix_akm = new zabbix_api({ host: "10.0.67.142", token: process.env.ZABBIX_API_TOKEN });
+const zabbix_sko = new zabbix_api({ host: "10.0.67.142", token: process.env.ZABBIX_API_TOKEN });
 
 async function device_is_dahua(url) {
   const ipreg = new dahua({
@@ -153,16 +158,45 @@ const groups_data_placement = {
   "time_updated": { column: "Q", check: get_true, get_db_data: undefined }, 
 };
 
+function mysql_real_escape_string(str) {
+  return str.replace(/[\0\x08\x09\x1a\n\r"'\\\%]/g, function (char) {
+    switch (char) {
+      case "\0": return "\\0";
+      case "\x08": return "\\b";
+      case "\x09": return "\\t";
+      case "\x1a": return "\\z";
+      case "\n": return "\\n";
+      case "\r": return "\\r";
+      case "\"":
+      case "'":
+      case "\\":
+      case "%":
+        return "\\"+char; // prepends a backslash to backslash, percent,
+                          // and double/single quotes
+      default: return char;
+    }
+  });
+}
+
+const strcmp = (a,b) => (a < b ? -1 : +(a > b));
+
 let xlsx_data = [
   [ "№ объекта", "Описание", "IP", "Тип устройства", "Модель устройства", "Производитель" ]
 ];
 
 (async () => {
-  const egsv = new egsv_api({
-    host: process.env.EGSV_HOST,
-    port: process.env.EGSV_PORT,
-    user: process.env.EGSV_USER,
-    pass: process.env.EGSV_PASS
+  const egsv_rtms = new egsv_api({
+    host: process.env.EGSV_HOST5,
+    port: process.env.EGSV_PORT5,
+    user: process.env.EGSV_USER5,
+    pass: process.env.EGSV_PASS5
+  });
+
+  const egsv_sko = new egsv_api({
+    host: process.env.EGSV_HOST3,
+    port: process.env.EGSV_PORT3,
+    user: process.env.EGSV_USER3,
+    pass: process.env.EGSV_PASS3
   });
 
   const prtg = new prtg_api({
@@ -172,630 +206,616 @@ let xlsx_data = [
     hash: process.env.PRTG_HASH,
   });
 
-  //const new_group_id = await prtg.add_group(1, "Тест группа (удалить)");
-  //console.log(new_group_id);
-  //await prtg.delete_object(3917);
+  await egsv_rtms.auth();
+  await egsv_sko.auth();
 
-  //const groups = await prtg.get_child_groups(2520);
-  //console.log(groups);
+  // const res1 = await egsv.method("taxonomy.list", { limit: 250 });
+  // let taxonomies = {};
+  // res1.taxonomies.forEach(el => taxonomies[el.id] = el.name);
 
-  //const devices = await prtg.get_child_devices(2526);
-  //console.log(devices);
+  // const res2 = await egsv.method("camera.list", { limit: 250 });
+  // const arr = res2.cameras.map(el => { 
+  //   const new_name = taxonomies[el.taxonomies[0]];
+  //   return { id: el.id, name: new_name, url: el.url, server: el.server, account: el.account };
+  // });
 
-  //const sensors = await prtg.get_child_sensors(2529);
-  //console.log(sensors);
-  
+  // for (const data of arr) {
+  //   const res = await egsv.method("camera.update", { camera: data });
+  //   //console.log(res);
+  //   //break;
+  // }
+  // console.log("done");
 
-  //const cams_list = await egsv.camera_list();
-  //const prtg_list = await prtg.sensors_tree();
+  // const ret = await zabbix_aqt.method("host.get", { groupids: [36] });
+  // const hostids = ret.map(el => el.hostid);
+  // const oldnames = ret.map(el => { return { id: el.hostid, name: el.name } } );
+  // const ret1 = await zabbix_aqt.method("hostinterface.get", { hostids: hostids });
+  // let host_ip_obj = {};
+  // ret1.forEach(el => { host_ip_obj[el.ip] = el.hostid; });
+  // //console.log(ret1);
+  // // for (const n of oldnames) {
+  // //   const r = await zabbix_aqt.method("usermacro.create", {
+  // //     hostid: n.id,
+  // //     macro: "{$OLDNAME}",
+  // //     value: n.name
+  // //   });
+  // // }
 
-  //console.log(prtg_list);
-  //console.log(prtg_list.sensortree.nodes.group.probenode.group["6"].group["1"].device);
+  // const ret2 = await egsv.method("rtms.report.list", {
+  //   filter: {
+  //     datetime: {
+  //       $gte: "2024-08-12T00:00:00+05:00",
+  //       $lte: "2024-08-15T23:59:59+05:00"
+  //     }
+  //   },
+  //   group: { hour: false },
+  //   include: ['cameras', 'last_datetimes'],
+  //   //violations: ['speed']
+  // });
 
-  //console.log("count:", cams_list.count);
-  //console.log(cams_list);
-  //console.log(cams_list.cameras[1]);
+  // let camera_ip_obj = {};
+  // ret2.cameras.forEach(el => {
+  //   const u = new URL(el.url);
+  //   camera_ip_obj[u.hostname] = el;
+  // });
 
-  //const cam_url = new URL(cams_list.cameras[0].url);
-  //console.log(cam_url);
+  // //console.log(host_ip_obj);
+  // //console.log(camera_ip_obj);
 
-  // надо сделать так чтобы среди всех производителей АПИ был максимально одинаковым + указать какой тип камеры
+  // let final_arr = [];
+  // for (const [ ip, hostid ] of Object.entries(host_ip_obj)) {
+  //   const c = camera_ip_obj[ip];
+    
+  //   final_arr.push({ hostid, name: c.name });
+  // }
 
-  {
-    //const dev_url = new URL(cams_list.cameras[0].url);
-    // const device = new dahua({
-    //   host: "10.0.114.131",
-    //   port: 80,
-    //   user: "admin",
-    //   pass: "qwerty12345"
-    // });
-
-    //const ret1 = await device.get_channel_title();
-    //const ret2 = await device.get_system_info();
-    //const ret1 = await device.get_caps(1);
-    //const ret1 = await device.get_device_type();
-    //console.log(ret1);
-    //console.log(ret2.data);
-  }
-
-  // {
-  //   //const dev_url = new URL(cams_list.cameras[0].url);
-  //   const device = new trassir({
-  //     host: "10.29.20.194",
-  //     port: 8080,
-  //     user: "aqmol",
-  //     pass: "aqmol12345" // это пароль для специального пользователя, только его достаточно
-  //   });
-
-  //   //await device.login();
-  //   //console.log(device.sid);
-  //   const ret = await device.objects();
-  //   console.log(ret);
-  // }  
-
-  {
-    //const dev_url = new URL(cams_list.cameras[0].url);
-    //http://10.29.2.2/ISAPI/Streaming/channels/101/pictur2
-    // const device = new dahua({
-    //   host: "10.29.21.3",
-    //   port: 80,
-    //   user: "aqmol",
-    //   pass: "aqmol12345"
-    // });
-
-    //const ret1 = await device.device_info(101);
-    //console.log(ret1);
-    // const date_str = make_current_day_str();
-    // const buffer = ret1;
-    // fs.writeFile(`pic1_${date_str}.jpg`, buffer, err => {
-    //   if (err) { console.error(err); return; }
-    //   console.log(`Success computing`);
-    // });
-  }
-
-  // {
-  //   //const dev_url = new URL(cams_list.cameras[0].url);
-  //   //http://10.29.2.2/ISAPI/Streaming/channels/101/pictur2
-  //   const device = new hikvision({
-  //     host: "10.29.2.2",
-  //     port: 80,
-  //     user: "aqmol",
-  //     pass: "aqmol12345"
-  //   });
-
-  //   const ret1 = await device.picture(101);
-  //   const date_str = make_current_day_str();
-  //   const buffer = ret1;
-  //   fs.writeFile(`pic2_${date_str}.jpg`, buffer, err => {
-  //     if (err) { console.error(err); return; }
-  //     console.log(`Success computing`);
+  // //console.log(final_arr);
+  // for (const n of final_arr) {
+  //   const ret = await zabbix_aqt.method("host.update", {
+  //     hostid: n.hostid,
+  //     name: n.name
   //   });
   // }
 
-  {
-    //const dev_url = new URL(cams_list.cameras[0].url);
-    //http://10.29.2.2/ISAPI/Streaming/channels/101/pictur2
-    // const device = new trassir({
-    //   host: "10.29.20.194",
-    //   port: 8080,
-    //   user: "aqmol",
-    //   pass: "aqmol12345"
-    // });
+  // //console.log(ret);
 
-    // const ret1 = await device.object_data(201);
-    // console.log(ret1);
-    // const date_str = make_current_day_str();
-    // const buffer = ret1;
-    // fs.writeFile(`pic3_${date_str}.jpg`, buffer, err => {
-    //   if (err) { console.error(err); return; }
-    //   console.log(`Success computing`);
-    // });
-  }
+  // let arr_p = [];
+  // for (let camera of ret.cameras) {
+  //   camera.nump = egsv.method("rtms.number.list", {
+  //     filter: {
+  //       datetime: {
+  //         $gte: "2024-08-12T00:00:00+05:00",
+  //         $lte: "2024-08-15T23:59:59+05:00"
+  //       },
+  //       camera: { $in: [ camera.id ] },
+  //       violation: { $in: [ "speed" ] }
+  //     },
+  //     include: ['files', 'cameras', 'certificate', 'metadata'],
+  //     limit: 1
+  //   });
 
-  // let unique_device = new Set();
-  // let dahua_promises = [];
-  // let hikvision_promises = [];
-  // let url_data = [];
-  // for (const dev of cams_list.cameras) {
-  //   const dev_url = new URL(dev.url);
-  //   if (unique_device.has(dev_url.hostname)) continue;
-  //   unique_device.add(dev_url.hostname);
-
-  //   const code1_promise = device_is_dahua(dev_url);
-  //   const code2_promise = device_is_hikvision(dev_url);
-  //   dahua_promises.push(code1_promise);
-  //   hikvision_promises.push(code2_promise);
-  //   const desc = dev.data ? dev.data.description : "";
-  //   url_data.push({ dev_url, name: dev.name, desc });
+  //   arr_p.push(camera.nump);
   // }
 
-  // const dahua_codes = await Promise.all(dahua_promises);
-  // const hikvision_codes = await Promise.all(hikvision_promises);
-  // //assert(dahua_codes.length === hikvision_codes.length);
-  // console.log(dahua_codes.length);
-
-  // let dahua_counter = 0;
-  // let hikvision_counter = 0;
-  // let dev_types = [];
-  // for (let i = 0; i < dahua_codes.length; ++i) {
-  //   const { dev_url, name, desc } = url_data[i];
-  //   const obj_num = name.split("_")[0];
-
-  //   let valid_code = {};
-  //   let device_vendor = "";
-  //   if (dahua_codes[i].status.code === 200) {
-  //     dahua_counter += 1;
-  //     valid_code = dahua_codes[i];
-  //     device_vendor = "dahua";
-  //   } else if (hikvision_codes[i].status.code === 200) {
-  //     hikvision_counter += 1;
-  //     valid_code = hikvision_codes[i];
-  //     device_vendor = "hikvision";
-  //   } else {
-  //     const dahua_str_code = `${dahua_codes[i].status.code} ${dahua_codes[i].status.desc}`;
-  //     const hikvision_str_code = `${hikvision_codes[i].status.code} ${hikvision_codes[i].status.desc}`;
-  //     xlsx_data.push([ obj_num, desc, dev_url.hostname, dahua_str_code, hikvision_str_code, "" ]);
+  // const arr_ans = await Promise.all(arr_p);
+  // let proxy_data_arr = [];
+  // for (const camera of ret.cameras) {
+  //   const ans = await camera.nump;
+  //   if (ans.numbers.length === 0) {
+  //     console.log(camera.data.description, camera.name);
   //     continue;
   //   }
 
-  //   xlsx_data.push([ obj_num, desc, dev_url.hostname, valid_code.data.type, valid_code.data.model, device_vendor ]);
+  //   const proxy_data = {
+  //     camera_id: camera.id,
+  //     camera_name: camera.name,
+  //     camera_address: camera.name.split(" ").slice(1).join(" "),
+  //     origin_name: ans.numbers[0].origin_name,
+  //     origin_serial_number: ans.numbers[0].origin_serial_number,
+  //     origin_address: ans.numbers[0].origin_address,
+  //     certificate_number: ans.numbers[0].certificate_number,
+  //     certificate_issue_date: ans.numbers[0].certificate_issue_date,
+  //     certificate_expire_date: ans.numbers[0].certificate_expire_date,
+  //     certificate_issuer: ans.numbers[0].certificate_issuer,
+  //   };
+  //   proxy_data_arr.push(proxy_data);
   // }
 
-  // // let dahua_counter = 0;
-  // // let hikvision_counter = 0;
-  // // let dev_types = [];
-  // // for (let i = 0; i < dahua_codes.length; ++i) {
-  // //   const { dev_url, name, desc } = url_data[i];
-  // //   const obj_num = name.split("_")[0];
+  // proxy_data_arr.sort((a,b) => strcmp(a.camera_name, b.camera_name));
 
-  // //   if (dahua_codes[i].status.code === 200) {
-  // //     dev_types.push({
-  // //       device: new dahua({
-  // //         host: dev_url.hostname,
-  // //         port: 80,
-  // //         user: dev_url.username,
-  // //         pass: dev_url.password
-  // //       }),
-  // //       type: "dahua",
-  // //       data: dahua_codes[i].data,
-  // //       name: obj_num,
-  // //       desc
-  // //     });
+  // //console.log(proxy_data_arr);
 
-  // //     dahua_counter += 1;
-  // //     continue;
-  // //   }
+  // //let insert_str = "INSERT INTO device (cameraName, deviceNumber, districtCode, sourceId, autoApprove, address, lane, certificateNumber, certificateIssueDate, certificateExpireDate) VALUES\n";
+  // let insert_str = "";
+  // let values_strs = [];
+  // for (const data of proxy_data_arr) {
+  //   //const local = `\n('${data.origin_name}', '${data.origin_serial_number}', 191510, 152, 0, '${mysql_real_escape_string(data.camera_name)}', 0, '${data.certificate_number}', '${data.certificate_issue_date}', '${data.certificate_expire_date}')`;
+  //   let local = `ALTER TABLE violation UPDATE locationTitle = '${mysql_real_escape_string(data.camera_name)}' WHERE (eventDateTime > toDateTime('2024-08-16 00:00:00', 'Asia/Aqtau')) AND (lvsSource = '${data.origin_serial_number}');`;
 
-  // //   if (hikvision_codes[i].status.code === 200) {
-  // //     dev_types.push({
-  // //       device: new hikvision({
-  // //         host: dev_url.hostname,
-  // //         port: 80,
-  // //         user: dev_url.username,
-  // //         pass: dev_url.password
-  // //       }),
-  // //       type: "hikvision",
-  // //       data: hikvision_codes[i].data,
-  // //       name: obj_num,
-  // //       desc
-  // //     });
+  //   values_strs.push(local);
+  // }
 
-  // //     hikvision_counter += 1;
-  // //     continue;
-  // //   }
+  // const final_str = `${insert_str} ${values_strs.join("\n")};`;
+  // console.log(final_str);
+  // fs.writeFileSync("ins.sql", final_str);
 
-  // //   const dahua_str_code = `${dahua_codes[i].status.code} ${dahua_codes[i].status.desc}`;
-  // //   const hikvision_str_code = `${hikvision_codes[i].status.code} ${hikvision_codes[i].status.desc}`;
-  // //   xlsx_data.push([ obj_num, desc, dev_url.hostname, dahua_str_code, hikvision_str_code, "" ]);
-  // // }
+  // const f_err = async function (severity) {
+  //   const problems = await zabbix_akm.method("problem.get", {
+  //     groupids: [ 148 ], //147
+  //     severities: [ severity ]
+  //   });
 
-  // // console.log(`Responded dahua     devices ${dahua_counter}`);
-  // // console.log(`Responded hikvision devices ${hikvision_counter}`);
+  //   //console.log("problems.length", problems.length);
+  //   const event_ids = problems.map(el => el.eventid);
+  //   const events = await zabbix_akm.method("event.get", { 
+  //     eventids: event_ids,
+  //     severities: [ severity ],
+  //     selectHosts: "extend",
+  //   });
 
-  // // for (let i = 0; i < dev_types.length; ++i) {
-  // //   const obj = dev_types[i];
-  // //   if (obj.type === "dahua") {
-  // //     const klass = await obj.device.get_device_class();
-  // //     const type = await obj.device.get_device_type();
+  //   const host_ids_arr = events.map(el => el.hosts.map(el1 => el1.hostid));
+  //   const host_ids = [].concat.apply([], host_ids_arr);
+  //   const hosts = await zabbix_akm.method("host.get", { hostids: host_ids, selectInterfaces: "extend", selectTags: "extend" });
 
-  // //     if (!type.data) {
-  // //       console.log(type.status);
-  // //       throw "Dahua type error";
-  // //     }
+  //   //console.log(hosts);
+  //   const arr_not_working = hosts.map(el => {
+  //     return {
+  //       name: el.name,
+  //       ip: el.interfaces[0].ip,
+  //       hostid: el.hostid,
+  //       tags: el.tags
+  //     };
+  //   });
+  //   arr_not_working.sort((a,b) => strcmp(a.name, b.name));
+  //   return arr_not_working;
+  // }
 
-  // //     if (!klass.data) {
-  // //       console.log(klass.status);
-  // //       throw "Dahua klass error";
-  // //     }
+  // // //console.log(arr_not_working);
 
-  // //     xlsx_data.push([ obj.name, obj.desc, obj.device.host(), klass.data, type.data, "dahua" ]);
-  // //     continue;
-  // //   }
+  // const errs = await f_err(4);
+  // let arr_not_working_xlsx = [ [ "Номер", "Имя", "IP адрес", "Тип" ] ];
+  // //console.log(errs[0].tags);
+  // errs.forEach(el => arr_not_working_xlsx.push([ el.name.split(" ")[0], el.name.split(" ").slice(1).join(" "), el.ip, el.tags.filter(t => t.tag === "type")[0]?.value ]));
 
-  // //   if (obj.type === "hikvision") {
-  // //     //const { data, status } = await obj.device.system_device_info();
-  // //     // if (!data) {
-  // //     //   console.log(status);
-  // //     //   throw "Hikvision error";
-  // //     // }
+  // const oks = await f_err(0);
+  // let arr_working_xlsx = [ [ "Номер", "Имя", "IP адрес", "Тип" ] ];
+  // oks.forEach(el => arr_working_xlsx.push([ el.name.split(" ")[0], el.name.split(" ").slice(1).join(" "), el.ip, el.tags.filter(t => t.tag === "type")[0]?.value ]));
 
-  // //     xlsx_data.push([ obj.name, obj.desc, obj.device.host(), obj.data.deviceType, obj.data.model, "hikvision" ]);
-  // //     continue;
-  // //   }
-  // // }
-
-  // const date_str = make_current_day_str();
-  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
-  // //const buffer = JSON.stringify(prtg_list);
-  // //console.log(`Writing sensors tree`);
-  // console.log(`Writing ${xlsx_data.length} rows`);
-  // fs.writeFile(`cams_${date_str}.xlsx`, buffer, err => {
-  //   if (err) { console.error(err); return; }
-  //   console.log(`Success computing`);
+  // let all_devices = [];
+  // oks.forEach(el => all_devices.push([ el.name.split(" ")[0], el.name.split(" ").slice(1).join(" "), el.ip, el.tags.filter(t => t.tag === "type")[0]?.value, "Работает" ]));
+  // errs.forEach(el => all_devices.push([ el.name.split(" ")[0], el.name.split(" ").slice(1).join(" "), el.ip, el.tags.filter(t => t.tag === "type")[0]?.value, "Не работает" ]));
+  // let schools_info = {};
+  // all_devices.forEach(el => {
+  //   let name = el[1].trim();
+  //   if (name.includes("BUTTON STRAZH")) name = name.split(" ").slice(0, -3).join(" ");
+  //   else name = name.split(" ").slice(0, -2).join(" ");
+  //   if (!schools_info[el[0]]) schools_info[el[0]] = { name: "", working: 0, not_working: 0 };
+  //   schools_info[el[0]].name = name;
+  //   schools_info[el[0]].working += el[4] === "Работает";
+  //   schools_info[el[0]].not_working += el[4] === "Не работает";
   // });
+  // all_devices.sort((a,b) => strcmp(a[0], b[0]));
+  // all_devices.unshift([ "Номер", "Имя", "IP адрес", "Тип", "Статус" ]);
 
-  // console.log(eng_abc.length);
-  // for (let i = 0; i < 50; ++i) {
-  //   console.log(num_to_abc(i));
+  // let schools_list = Object.entries(schools_info).map((el) => [ el[0], el[1].name, el[1].working, el[1].not_working, el[1].working + el[1].not_working ]);
+  // schools_list.sort((a,b) => strcmp(a[0], b[0]));
+  // schools_list.unshift([ "Номер", "Имя", "Работает", "Не работает", "Всего" ]);
+
+  // //console.log("errs.length", errs.length, "oks.length", oks.length);
+  // const buffer = xlsx.build([{ name: 'Общая', data: all_devices }, { name: 'Работает', data: arr_working_xlsx }, { name: 'Не работает', data: arr_not_working_xlsx }, { name: "По школам", data: schools_list }]);
+  // fs.writeFileSync("80_obj.xlsx", buffer);
+
+  // кукис нужно получить сначала
+  // const folder_path = "./aqtobe_icmp_images";
+  // const last_amount_time = "2d";
+  // const ret = await zabbix_aqt.method("graph.get", { groupids: [ 36 ], selectHosts: "extend" });
+  // const ping_arr = ret.filter(el => el.name.indexOf("g1") >= 0);
+  // //console.log(ping_arr);
+  // //console.log(ping_arr.length);
+  // for (const graph of ping_arr) {
+  //   const name = graph.hosts[0].name.replaceAll(/[:\/\\]/g, "_");
+  //   const image_graph_url = `http://10.4.1.49/chart2.php?graphid=${graph.graphid}&from=now-${last_amount_time}&to=now&height=201&width=1335&profileIdx=web.charts.filter&_=wsesoro0`;
+  //   const img_ret = await axios.get(image_graph_url, { headers: { 'Cookie': 'zbx_session=eyJzZXNzaW9uaWQiOiJiNTMwYTI5ZDA2N2QzYTM0NjE4ZmY0ZmNjMmU3OWI2OSIsInNlcnZlckNoZWNrUmVzdWx0Ijp0cnVlLCJzZXJ2ZXJDaGVja1RpbWUiOjE3MjQ2Nzg1MjksInNpZ24iOiI4N2NhYWE3ODVhMzIxZWNkMjU0Yjc5MjkzMjI1YmM2MTdhYTFjMDY1ZjE4YzJiMDFkMzZmOTkxZWNiMmIwYzRkIn0%3D' }, 'withCredentials': 'true', responseType: "arraybuffer" });
+  //   if (!fs.existsSync(folder_path)) fs.mkdirSync(folder_path);
+  //   const file_path = `${folder_path}/${name}.png`;
+  //   fs.writeFileSync(file_path, img_ret.data);
   // }
 
-  //console.log(num_to_abc(devices_data_fields.length));
-  // фух кое как закончил, это обновление таблицы устройств
-  // const last_column = num_to_abc(devices_data_fields.length);
-  // const values = await google.read_values(file_id, `A2:${last_column}`);
-  // for (let index = 0; index < values.length; ++index) {
-  //   const row = rows[index];
-
-  //   // без каких данных можно проигнорировать?
-  //   const type = row[devices_type_placement];
-  //   if (!type || type === "") continue;
-  //   const object_id = row[devices_object_id_placement];
-  //   if (!object_id || object_id === "") continue;
-  //   const ip_address = row[devices_ip_address_placement];
-
-  //   const valuable_data_part = row.slice(0, 22);
-  //   const data_str = valuable_data_part.join(";");
-  //   const hash = sha256(data_str);
-  //   const row_hash = row[devices_hash_placement];
-  //   if (row_hash === hash) continue;
-
-  //   const final_index = index + 1 + 1; // индексируем с 1 + стартуем со второй строки
-  //   let device_data = {};
-  //   let continueb = false;
-  //   for (let i = 0; i < devices_data_fields.length; ++i) {
-  //     const field_name = devices_data_fields[i];
-  //     if (ignore_update_set.has(field_name)) continue;
-
-  //     const row_value = row[i];
-  //     const check = devices_data_placement[field_name].check(row_value);
-  //     if (!check) {
-  //       // пишем комментарий сзади строки
-  //       const comm_coord = make_spreadsheet_coord(devices_data_fields.length, final_index);
-  //       const error_coord = make_spreadsheet_coord(i, final_index);
-  //       await google.write_values(file_id, `${comm_coord}:${comm_coord}`, [ [ `Could not parse '${field_name}' at ${error_coord}` ] ]);
-  //       continueb = true;
-  //       break;
-  //     }
-
-  //     if (devices_data_placement[field_name].get_db_data) {
-  //       const obj = await devices_data_placement[field_name].get_db_data(field_name, row_value);
-  //       device_data = unite_objs(device_data, obj);
-  //     } else {
-  //       device_data[field_name] = row_value;
-  //     }
-  //   }
-
-  //   if (continueb) continue;
-  //   // тут у нас есть распаршенные данные строки, теперь надо понять есть ли такое устройство 
-  //   // если id нет, то попробуем поискать по данным строки
-  //   const row_id = row[devices_id_placement];
-  //   if (!row_id || row_id === "") {
-  //     if (type === "камера") {
-  //       // тогда нам нужны: объект, ид канала, ну и тип
-  //       const found_obj = await db.find_device_by_group_id_type_channel_id(device_data["group_id"], type, device_data["channel_id"]);
-  //       if (found_obj) {
-  //         const camera_data = `${object_id}, ${type}, ${device_data["channel_id"]}`;
-  //         const comm_coord = make_spreadsheet_coord(devices_data_fields.length, final_index);
-  //         await google.write_values(file_id, `${comm_coord}:${comm_coord}`, [ [ `Found potentional camera doublicate (${camera_data}) with id ${found_obj.id}` ] ]);
-  //         continue;
-  //       }
-
-  //       // добавим новую камеру
-  //       // добавим ее в пртг и егсв
-  //       const device_id = await db.create_device(device_data);
-  //       // после обновим последние несколько столбцов
-  //     } else {
-  //       // для остального нужен по большому счету только ip
-  //       if (!ip_address || ip_address === "") continue;
-
-  //       const found_obj = await db.find_device_by_ip_address(ip_address);
-  //       if (found_obj) {
-  //         const dev_data = `${object_id}, ${type}, ${ip_address}`;
-  //         const comm_coord = make_spreadsheet_coord(devices_data_fields.length, final_index);
-  //         await google.write_values(file_id, `${comm_coord}:${comm_coord}`, [ [ `Found potentional device doublicate (${dev_data}) with id ${found_obj.id}` ] ]);
-  //         continue;
-  //       }
-
-  //       // добавим новое устройство
-  //       // утройство достаточно добавить только в пртг и в нашу базу
-  //       const device_id = await db.create_device(device_data);
-  //       // после обновим последние несколько столбцов
-  //     }
-  //   }
+  // const make_good_num = num => num < 10 ? "0"+num : ""+num;
+  // function make_sane_time_string(date) {
+  //   const final_date = new Date(date);
+  //   const y = final_date.getFullYear();
+  //   const m = make_good_num(final_date.getMonth()+1);
+  //   const d = make_good_num(final_date.getDate());
+  //   const H = make_good_num(final_date.getHours());
+  //   const M = make_good_num(final_date.getMinutes());
+  //   const S = make_good_num(final_date.getSeconds());
+  //   return `${y}-${m}-${d} ${H}:${M}:${S}`;
   // }
 
-  // // предположим это группы
-  // const values = await google.read_values(file_id, "A2:P");
-  // for (const row of values) {
-  //   // константы 
-  //   const valuable_data_part = row.slice(0, 11);
-  //   const data_str = valuable_data_part.join(";");
-  //   const hash = sha256(data_str);
-
-  //   if (row_hash !== hash) {
-  //     // обновим, для этого сделаем из массива объект
-  //     await db.update_device(data);
-  //     await prtg.update_device(data); // обновим название группы и устройства?
-  //     await egsv.update_device(data); // обновим название, описание, координаты, таксономию для всей группы
-  //     // обновим хеш и дату в гугл таблице
-  //   }
-  // }
-
-  // в конце обновим сводную таблицу
-  // при обновлении данных нужно как то обнаружить возможные ошибки
-
-  //const group = await prtg.find_group(2520);
-  // let xlsx_data = [ [ "Номер объекта", "Название объекта", "Тип", "Адрес", "Маска", "Гейт", "Оборудование" ] ];
-  // const { groups } = await prtg.get_child_groups(2520);
-  // for (const group of groups) {
-  //   //console.log(group);
-  //   const id = group.name.split(" ")[0];
-  //   const name = get_rid_of_first_el(group.name.split(" ")).join(" ");
-  //   //console.log(name);
-  //   const { devices } = await prtg.get_child_devices(group.objid);
-  //   for (const device of devices) {
-  //     //console.log(device);
-  //     // const dev = new dahua({
-  //     //   host: device.host,
-  //     //   port: 80,
-  //     //   user: "aqmol", // ???
-  //     //   pass: "aqmol12345"
-  //     // });
-
-  //     const device_subnet = new subnet(`${device.host}/25`);
-  //     const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
-  //     xlsx_data.push([ id, name, type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
-  //   }
-
-  //   xlsx_data.push([]);
-  // }
-
-  // const { devices } = await prtg.get_child_devices(2504);
-  // for (const device of devices) {
-  //   const device_subnet = new subnet(`${device.host}/25`);
-  //   const type = get_rid_of_first_el(device.name.split(" ")).join(" ");
-  //   xlsx_data.push([ "12081", "Дом ребенка города Щучинск, ул. Боровская, 33", type, device.host, device_subnet.mask, device_subnet.host_min, "dahua" ]);
-  // }
-
-  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
-  // fs.writeFileSync("cam_data123.xlsx", buffer);
-
-  // const hikvision_datas = [
-  //   { host: "192.10.16.2", port: 80, user: "admin", pass: "qwerty123456" },
-  //   //{ host: "10.4.0.1", port: 4565, user: "admin1", pass: "12345asd", actual_address: "192.168.1.186" },
-  //   //{ host: "10.4.0.1", port: 4566, user: "admin", pass: "Ad12345678", actual_address: "192.168.2.100" },
-  //   //{ host: "192.12.43.3", port: 80, user: "admin", pass: "admin12345" },
+  // const time_arr = [ 
+  //   [ "14:00", "14:15" ], [ "14:15", "14:30" ], [ "14:30", "14:45" ], [ "14:45", "15:00" ],
+  //   [ "00:00", "00:15" ], [ "00:15", "00:30" ], [ "00:30", "00:45" ], [ "00:45", "01:00" ],
+  //   [ "06:30", "06:45" ], [ "06:45", "07:00" ], [ "07:00", "07:15" ], [ "07:15", "07:30" ],
   // ];
+  // let xlsx_data = [ [ "Скоростемер", "Время", "Рапознанный номер", "Фактический номер", "Чем отличается" ] ];
+  // let counter = 0;
+  // for (const [ start, end ] of time_arr) {
+  //   let date = "2024-09-16";
+  //   if (counter >= 4) date = "2024-09-17";
 
-  // let xlsx_data = [ [ "address", "user", "pass", "actual_address", "status", "manufacturer", "model" ] ];
-  // for (const data of hikvision_datas) {
-  //   const dev = new hikvision(data);
-  //   const resp = await dev.device_info();
-  //   //console.log(resp);
-  //   xlsx_data.push([ data.host, data.user, data.pass, data.actual_address, resp.status.code, "Hikvision", resp.data ? resp.data.type+" "+resp.data.model : undefined ]);
-  // }
+  //   //console.log(`${date} ${start}:00`);
+  //   //console.log(`${date} ${end}:00`);
 
-  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
-  // fs.writeFileSync("hikvision_devices.xlsx", buffer);
+  //   const p = await egsv_sko.method("rtms.number.list", {
+  //     filter: {
+  //       datetime: {
+  //         $gte: `${date} ${start}:00`,
+  //         $lte: `${date} ${end}:00`
+  //       },
+  //       camera: { $in: [ "635a8654fb8d0eee3d73b8f3" ] }
+  //     },
+  //     limit: 1000000,
+  //     sort: { datetime: 'asc' }
+  //     //include: [ 'cameras', 'last_datetimes' ]
+  //   });
 
-  // const device = new hikvision({ host: "192.12.70.4", port: 80, user: "admin", pass: "qwerty12345" });
-  // {const resp = await device.streaming_params(101)2
-  // console.log(resp.data);}
-  // {const resp = await device.set_streaming_params(101, 1280, 720, 1024, 15)2
-  // console.log(resp.data);}
-  // {const resp = await device.streaming_params(101)2
-  // console.log(resp.data);}
-
-  // const rtms_egsv = new egsv_api({
-  //   host: "10.0.67.150",
-  //   port: "4080",
-  //   user: "LemeshevA",
-  //   pass: "!Q2w3e4r"
-  // });
-
-  //const list1 = await rtms_egsv.server_list();
-  //console.log(list.servers);
-  //console.log(list.servers[0].api_connection);
-  // let xlsx_data = [ [ "id", "host", "name", "driver", "user", "pass", "default_account" ] ];
-  // for (const server of list.servers) {
-  //   xlsx_data.push([ server.id, server.host, server.name, server.api_connection.driver, server.api_connection.vit_edge.username, server.api_connection.vit_edge.password, server.api_connection.egsv2.default_account ]);
-  // }
-
-  // const buffer = xlsx.build([{name: 'Лист1', data: xlsx_data}]);
-  // fs.writeFileSync("rtms_devices.xlsx", buffer);
-
-
-  // const rtms_egsv2 = new egsv_api({
-  //   host: "10.4.1.200",
-  //   port: "4080",
-  //   user: "andreylemeshev",
-  //   pass: "andreylemeshev"
-  // });
-
-  // let existing_servers_host = {};
-  // let existing_servers_name = {};
-  // let existing_taxonomies_name = {};
-  // const list = await rtms_egsv2.server_list();
-  // const tlist = await rtms_egsv2.taxonomy_list();
-  // for (const server of list.servers) {
-  //   existing_servers_name[server.name] = server.id;
-  //   existing_servers_host[server.host] = server.id;
-  // }
-
-  // for (const taxonomy of tlist.taxonomies) {
-  //   const obj_id = taxonomy.name.split(" ")[0];
-  //   existing_taxonomies_name[obj_id] = taxonomy.id;
-  // }
-
-  // const known_devices = xlsx.parse("devices.xlsx");
-  // // for (const row of known_devices[0].data) {
-  // //   const [ num, id, name, city, link, address, vpn_address, coords, device_number, uuid ] = row; // пока так
-  // //   if (!id) continue;
-  // //   if (!name) continue;
-  // //   if (id === "№") continue;
-
-  // //   const taxonomy_name = `${id} ${name}`;
-  // //   if (existing_taxonomies_name[taxonomy_name]) continue;
-  // //   const resp = await rtms_egsv2.create_taxonomy(taxonomy_name);
-  // //   console.log(resp.taxonomy.id, resp.taxonomy.name);
-  // // }
-  // for (const row of known_devices[0].data) {
-  //   const [ num, id, name, city, link, address, view_address, link2, vpn_address, coords, device_number, uuid ] = row; // пока так
-  //   console.log(`${id} ${name}`);
-  //   if (!subnet.is_ip_address(address)) continue;
-
-  //   const server_name = `${id} ${device_number ? device_number : "???"}`;
-  //   const taxonomy_name = `${id} ${name}`;
-  //   const t_id = existing_taxonomies_name[id];
-  //   if (!t_id) throw `Could not find taxonomy ${taxonomy_name}`;
-
-  //   let server_id = undefined;
-  //   if (!existing_servers_name[server_name] && !existing_servers_host[address]) {
-  //     const resp = await rtms_egsv2.create_server(address, 8081, server_name);
-  //     //console.log(resp.server.name, resp.server.id);
-  //     server_id = resp.server.id;
-  //   } else if (existing_servers_name[server_name] && !existing_servers_host[address]) {
-  //     server_id = existing_servers_name[server_name];
-
-  //     const username = "user";
-  //     const password = "q1w2e3r4t5";
-  //     const files_strategy = "default";
-  //     const update_data = { id: server_id, api_connection: { driver: 'VitEDGE', vit_edge: { username, password, files_strategy } }, name: server_name, host: address, port: 8081 };
-  //     const resp2 = await rtms_egsv2.update_server(update_data);
-
-  //   } else if (!existing_servers_name[server_name] && existing_servers_host[address]) {
-
-  //     server_id = existing_servers_host[address];
-  //   } else {
-  //     server_id = existing_servers_host[address];
+  //   //console.log(p);
+  //   for (const n of p.numbers) {
+  //     xlsx_data.push([ "MLS07120827", make_sane_time_string(n.datetime), n.plate_number, "", "" ]);
   //   }
 
-  //   if (!server_id) throw `Could not get server_id from host '${address}', server name '${server_name}'`;
+  //   counter+=1;
+  // }
 
-  //   let synced_cameras = [];
+  // const buffer = xlsx.build([{ name: 'лист', data: xlsx_data }]);
+  // fs.writeFileSync("speed_numbers.xlsx", buffer);
+
+  // const cont = fs.readFileSync("zabbix_groups.json");
+  // //const taxes = JSON.parse(cont);
+  // //let xlsx_arr = [];
+  // const groups = JSON.parse(cont);
+  // const excel = xlsx.parse("cameras.xlsx");
+  // for (const row of excel[3].data) {
+  //   let [ name, router_address ] = [ row[7], row[8] ];
+  //   if (!(subnet.is_ip_address(router_address) || subnet.is_subnet_address(router_address))) continue;
+  //   if (!name || typeof name !== "string" || name === "") continue;
+  //   if (router_address.indexOf("/24") !== -1) continue;
+  //   if (router_address.indexOf("/28") === -1) router_address = router_address+"/28";
+  //   const net = new subnet(router_address);
+  //   let router = net.ip_num + 1;
+  //   let ptz = router + 1;
+  //   let cam01 = router + 2;
+  //   let cam02 = router + 3;
+
+  //   const router_addr = subnet.num_to_ip(router);
+  //   const ptz_address = subnet.num_to_ip(ptz);
+  //   const cam01_address = subnet.num_to_ip(cam01);
+  //   const cam02_address = subnet.num_to_ip(cam02);
+
+  //   console.log(name, ptz_address, cam01_address, cam02_address);
+  //   // над короч в базовом виде виимо добавить, а потом исправить и взять уже нормальные адреса
+
+  //   // тут нужно создать группы камер + сами камеры к этим группам
+  //   //const ret = await egsv.method("taxonomy.create", {
+  //   //  taxonomy: {
+  //   //    name: name,
+  //   //    parent: "66ebf363ac02e80330a6340a"
+  //   //  }
+  //   //});
+
+  //   //taxes[ret.taxonomy.name] = ret.taxonomy.id;
+
+  //   //const tax_id = taxes[name];
+  //   //if (!tax_id) throw `Could not find tax '${name}'`;
+
+  //   //const cam01_link01 = `rtsp://admin:adm12345@${ptz_address}:554/ISAPI/Streaming/Channels/101`;
+  //   //const cam01_link02 = `rtsp://admin:adm12345@${ptz_address}:554/ISAPI/Streaming/Channels/102`;
+  //   //const cam02_link01 = `rtsp://admin:adm12345@${cam01_address}:554/ISAPI/Streaming/Channels/101`;
+  //   //const cam02_link02 = `rtsp://admin:adm12345@${cam01_address}:554/ISAPI/Streaming/Channels/102`;
+  //   //const cam03_link01 = `rtsp://admin:adm12345@${cam02_address}:554/ISAPI/Streaming/Channels/101`;
+  //   //const cam03_link02 = `rtsp://admin:adm12345@${cam02_address}:554/ISAPI/Streaming/Channels/102`;
+
+  //   //xlsx_arr.push([ `${router_address}_cam01`, name, cam01_link01, cam01_link02, tax_id ]);
+  //   //xlsx_arr.push([ `${router_address}_cam02`, name, cam02_link01, cam02_link02, tax_id ]);
+  //   //xlsx_arr.push([ `${router_address}_cam03`, name, cam03_link01, cam03_link02, tax_id ]);
+
+  //   //const ret = await zabbix_aqt.method("hostgroup.create", { name: `ОВН/${name}` });
+  //   //groups[name] = ret.groupids[0];
+
+  //   const gid = groups[name];
+
   //   try {
-  //     const resp1 = await rtms_egsv2.sync_server(server_id);
-  //     synced_cameras = resp1.downloaded;
-  //   } catch(e) {
-  //     if (e.response) {
-  //       console.log("server1", e.response.data, e.response.status, e.response.statusText);
-  //       //if (e.response.data.error.indexOf("status code 401") !== -1) continue;
-  //       if (e.response.data.error.indexOf("timeout of ") !== -1) continue;
-  //       if (e.response.data.error.indexOf("EHOSTUNREACH") !== -1) continue;
-  //     }
-  //     else console.log(e);
-
-  //     console.log("Trying admin login/pass");
-  //     const username = "admin"; 
-  //     const password = "q1w2e3r4t5";
-  //     const files_strategy = "default";
-  //     const update_data = { id: server_id, api_connection: { driver: 'VitEDGE', vit_edge: { username, password, files_strategy } }, name: server_name, host: address, port: 8081 };
-  //     const resp2 = await rtms_egsv2.update_server(update_data);
-
-  //     try {
-  //       const resp1 = await rtms_egsv2.sync_server(server_id);
-  //       synced_cameras = resp1.downloaded;
-  //     } catch(e) {
-  //       if (e.response) console.log("server2", e.response.data, e.response.status, e.response.statusText);
-  //       else console.log(e);
-  //     }
+  //     const ret1 = await zabbix_aqt.method("host.create", {
+  //       "host": `${router_addr} router`,
+  //       "name": `ОВН / ${name} | router`,
+  //       "interfaces": [
+  //         {
+  //           "type": 2,
+  //           "main": 1,
+  //           "useip": 1,
+  //           "ip": router_addr,
+  //           "dns": "",
+  //           "port": "161"
+  //         }
+  //       ],
+  //       "groups": [
+  //         {
+  //           "groupid": gid
+  //         }
+  //       ],
+  //       "tags": [
+  //         {
+  //           "tag": "subnet",
+  //           "value": router_address
+  //         }
+  //       ],
+  //     });
+  //   } catch (e) {
+  //     console.log(`'${router_addr} router' exists`);
   //   }
 
-  //   const full_description = `${id} ${name}`;
-  //   //console.log(resp1);
-  //   for (const camera of synced_cameras) {
-  //     const camera_id = camera.id;
-  //     const latlng = coords ? coords.split(",").map(lat => lat.trim()) : undefined;
-  //     const camera_data = { id: camera_id, name: full_description, data: { description: device_number }, taxonomies: [ t_id ], latlng };
-  //     try {
-  //       const resp2 = await rtms_egsv2.update_camera(camera_data);
-  //     } catch (e) {
-  //       //console.log(latlng);
-  //       if (e.response) console.log("camera", e.response.data, e.response.status, e.response.statusText);
-  //       else console.log(e);
-  //     }
+  //   try {
+  //   const ret2 = await zabbix_aqt.method("host.create", {
+  //     "host": `${ptz_address} cam01`,
+  //     "name": `ОВН / ${name} | cam01`,
+  //     "interfaces": [
+  //       {
+  //         "type": 2,
+  //         "main": 1,
+  //         "useip": 1,
+  //         "ip": ptz_address,
+  //         "dns": "",
+  //         "port": "161"
+  //       }
+  //     ],
+  //     "groups": [
+  //       {
+  //         "groupid": gid
+  //       }
+  //     ],
+  //     "tags": [
+  //       {
+  //         "tag": "subnet",
+  //         "value": router_address
+  //       }
+  //     ],
+  //     "macros": [
+  //       {
+  //         "macro": "{$ADMINUSER}",
+  //         "value": "admin"
+  //       },
+  //       {
+  //         "macro": "{$ADMINPASS}",
+  //         "value": "adm12345"
+  //       }
+  //     ]
+  //   });
+  //   } catch (e) {
+  //     console.log(`'${ptz_address} cam01' exists`);
+  //   }
+
+  //   try {
+  //   const ret3 = await zabbix_aqt.method("host.create", {
+  //     "host": `${cam01_address} cam02`,
+  //     "name": `ОВН / ${name} | cam02`,
+  //     "interfaces": [
+  //       {
+  //         "type": 2,
+  //         "main": 1,
+  //         "useip": 1,
+  //         "ip": cam01_address,
+  //         "dns": "",
+  //         "port": "161"
+  //       }
+  //     ],
+  //     "groups": [
+  //       {
+  //         "groupid": gid
+  //       }
+  //     ],
+  //     "tags": [
+  //       {
+  //         "tag": "subnet",
+  //         "value": router_address
+  //       }
+  //     ],
+  //     "macros": [
+  //       {
+  //         "macro": "{$ADMINUSER}",
+  //         "value": "admin"
+  //       },
+  //       {
+  //         "macro": "{$ADMINPASS}",
+  //         "value": "adm12345"
+  //       }
+  //     ]
+  //   });
+  //   } catch (e) {
+  //     console.log(`'${cam01_address} cam02' exists`);
+  //   }
+
+  //   try {
+  //   const ret4 = await zabbix_aqt.method("host.create", {
+  //     "host": `${cam02_address} cam03`,
+  //     "name": `ОВН / ${name} | cam03`,
+  //     "interfaces": [
+  //       {
+  //         "type": 2,
+  //         "main": 1,
+  //         "useip": 1,
+  //         "ip": cam02_address,
+  //         "dns": "",
+  //         "port": "161"
+  //       }
+  //     ],
+  //     "groups": [
+  //       {
+  //         "groupid": gid
+  //       }
+  //     ],
+  //     "tags": [
+  //       {
+  //         "tag": "subnet",
+  //         "value": router_address
+  //       }
+  //     ],
+  //     "macros": [
+  //       {
+  //         "macro": "{$ADMINUSER}",
+  //         "value": "admin"
+  //       },
+  //       {
+  //         "macro": "{$ADMINPASS}",
+  //         "value": "adm12345"
+  //       }
+  //     ]
+  //   });
+  //   } catch (e) {
+  //     console.log(`'${cam02_address} cam03' exists`);
   //   }
   // }
 
-  const egsv_aqt = new egsv_api({
-    host: "10.4.0.10",
-    port: "4080",
-    user: "alemeshev",
-    pass: "alemeshev"
+  //fs.writeFileSync("taxonomies.json", JSON.stringify(taxes));
+  //const xlsx_cont = xlsx.build([{ name: "list", data: xlsx_arr }]);
+  //fs.writeFileSync("cam_d.xlsx", xlsx_cont);
+  //fs.writeFileSync("zabbix_groups.json", JSON.stringify(groups));
+
+  // заново добавим OVN
+
+  let ret = await egsv_rtms.method("camera.list", {
+    "can": [
+      "view",
+      "update",
+      "delete",
+    ],
+    "include": [
+      "computed",
+      "account",
+      "server"
+    ],
+    "limit": 100000,
+    "sort": {
+      "name": "asc"
+    },
+    "filter": {
+      "_taxonomies": {
+        "$in": [ "66ebf363ac02e80330a6340a" ]
+      }
+    }
   });
 
-  const data = {
-    can: ['view', 'update', 'delete', 'rtms', 'lvs2'],
-    filter: { _taxonomies: { $in: [ "65520f20085a19d6c2e6104a" ] } },
-    include: ['account', 'server'],
-    limit: 250
-  };
+  //console.log(ret.cameras[0]);
+  //console.log(ret.cameras.length);
 
-  let data_arr = [];
-  const list = await egsv_aqt.method("camera.list", data);
-  for (const camera of list.cameras) {
-    const url = new URL(camera.url);
+  ret.cameras = ret.cameras.sort((a,b) => strcmp(a.name,b.name));
 
-    const data = {
-      address: url.hostname,
-      username: url.username,
-      password: url.password,
-      url: url.href,
-      name: camera.name.replace(/\s\s+/g, ' ').trim(),
-      latlng: camera.latlng,
-      ptz: camera.ptz
+  let unique_ip = {};
+  let unique_group = {};
+  let unique_group_name = {};
 
-    };
-    data_arr.push(data);
-    //console.log(data);
+  let arr = [];
+  for (const cam of ret.cameras) {
+    const host = new URL(cam.url).hostname.trim();
+    const group = cam.name.trim().split(".")[0].trim();
+    const type = cam.name.trim().split(".")[1].trim();
+    const group_name = cam.data.description.trim();
+    const egsv_id = cam.id;
+    const latlng_str = (cam.latlng[0] ? cam.latlng[0] + "," + cam.latlng[1] : "").trim();
+    const local_str = `${group} ${type} ${host} ${group_name} ${latlng_str}`;
+    //console.log(latlng_str);
+    //console.log(local_str);
+
+    arr.push({
+      group,
+      type,
+      host,
+      group_name,
+      latlng_str,
+      egsv_id
+    });
+
+    if (unique_ip[host]) {
+      console.log(`IP collision ${host}`);
+    }
+
+    if (unique_group[group] && unique_group[group] !== group_name) {
+      console.log(`Name mismatch ${group} ${group_name}`);
+    }
+
+    if (unique_group_name[group_name] && unique_group_name[group_name] !== group) {
+      console.log(`Group mismatch ${group_name} ${group}`);
+    }
+
+    if (!unique_ip[host]) unique_ip[host] = true;
+    if (!unique_group[group]) unique_group[group] = group_name;
+    if (!unique_group_name[group_name]) unique_group_name[group_name] = group;
   }
-  
-  // вообще наверное имеет смысл задать по группам все смартсити
-  const groupid = 151;
-  let para = [];
-  for (const data of data_arr) {
-    // 
-  }
-    
 
-  // console.log(para);
-  // const res = await zabbix_aqt.method("host.create", para);
-  // console.log(res);
+  let created_group = {};
+  const start = 0;
+  for (let i = start; i < arr.length; ++i) {
+    const data = arr[i];
+    const z_group_name = `${data.group} ${data.group_name}`;
+    if (!created_group[z_group_name]) {
+      const ret = await zabbix_aqt.method("hostgroup.create", { name: `ОВН/${z_group_name}` });
+      created_group[z_group_name] = ret.groupids[0];
+    }
+
+    if (!created_group[z_group_name]) {
+      throw `Could not find group ${z_group_name}`;
+    }
+
+    const short_group_name = data.group_name.substring(0, 20);
+
+    const ret = await zabbix_aqt.method("host.create", {
+      "host": `${data.group} ${data.type} ${data.host}`,
+      "name": `${data.group} ${data.type} ${data.host}`, // ${short_group_name} 
+      "interfaces": [
+        {
+          "type": 2,
+          "main": 1,
+          "useip": 1,
+          "ip": data.host,
+          "dns": "",
+          "port": "161",
+          "details": {
+            version: 2,
+            community: "public"
+          }
+        }
+      ],
+      "groups": [
+        {
+          "groupid": created_group[z_group_name]
+        }
+      ],
+      "tags": [
+        {
+          "tag": "type",
+          "value": data.type
+        },
+        {
+          "tag": "group",
+          "value": data.group
+        }
+      ],
+      "macros": [
+        {
+          "macro": "{$EGSVID}",
+          "value": data.egsv_id
+        },
+        {
+          "macro": "{$LATLNGSTR}",
+          "value": data.latlng_str
+        }
+      ]
+    });
+
+    console.log(i, ret);
+
+    //break;
+  }
 })();
 
-// так что теперь? мы получаем список камер из ЕГСВ и пытаемся понять что перед нами: камера или рег?
-// если отдельная камера, то проверяем что это либо dahua либо hikvision отправив какой нибудь простой запрос
-// для камер дальше нужно понять что за модель и взять еще парочку параметров и свести это дело в табличку
-// если это рег, то опять проверяем производителя, берем модель и дальше нужно понять сколько и какие камеры подключены
-// к регу, в hikvision кажется есть команды чтобы так или иначе провзаимодействовать с каналами, а у dahua я не нашел
-// нужно взять модели камер которые подключены к регу и их тоже в табличку засунуть
-
-// так что делаем сейчас? нужно создать сервис который будет парсить гугл таблицы и следить за их состоянием 
-// по этим данным сервис будет синхронизировать данные с пртг и егсв
-// прежде всего нужно сделать 4 таблицы: устройства, группы, контакты + общая сводная таблица
-// общая сводная таблица - только для чтения, из остальных таблиц читаем инфу
-// не будет ли таблица устройств слишком большой? скорее всего будет, надо ли что бы она была меньше?
-// да может быть и нет исправлений там немного + есть фильтры
-// как это выглядит? каждые два часа запускаем скрипт который:
-// пройдет все строки, посчитает для строки хеш, сравнит его (с чем? хеш в базе? хеш в строке?),
-// если хеш не совпадает, обновит бд и если нужно обновит ПРТГ и ЕГСВ
+// 

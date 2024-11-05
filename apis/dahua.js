@@ -241,6 +241,8 @@ dahua.prototype.picture = async function(channel_id) {
   const path = `/cgi-bin/snapshot.cgi?channel=${channel_index}`;
   const req_url = `${this.BASEURI}${path}`;
   const httpsAgent = this.PROTOCOL === "https" ? new https.Agent({ rejectUnauthorized: false }) : undefined;
+  console.log(this.USER, this.PASS, req_url);
+
   const response = await this.digest_auth.request({
     method: "GET",
     url: req_url,
@@ -270,6 +272,21 @@ dahua.prototype.device_info = async function() {
   if (!type.data) return type;
 
   return { data: { type: klass.data, model: type.data }, status: { code: 200, desc: "Ok" } };
+}
+
+dahua.prototype.method = async function(url) {
+  const req_url = `${this.BASEURI}${url}`;
+  const httpsAgent = this.PROTOCOL === "https" ? new https.Agent({ rejectUnauthorized: false }) : undefined;
+  const response = await this.digest_auth.request({
+    method: "GET",
+    url: req_url,
+    httpsAgent,
+    responseType: 'arraybuffer'
+  });
+
+  console.log(response);
+
+  return response.data;
 }
 
 module.exports = dahua;

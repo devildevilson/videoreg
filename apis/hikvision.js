@@ -185,6 +185,7 @@ hikvision.prototype.system_device_info = async function() {
 // отправим строку (или число) вида: А0В, где А - номер канала, В - номер доп канала (обычно 1 или 2)
 // например 101 или 201
 hikvision.prototype.picture = async function(channel_id) {
+  const self = this;
   const req_url = `${this.BASEURI}/ISAPI/Streaming/channels/${channel_id}/picture`;
   const httpsAgent = new https.Agent({ rejectUnauthorized: false });
   const response = await this.digest_auth.request({
