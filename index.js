@@ -683,6 +683,237 @@ let xlsx_data = [
 
   // заново добавим OVN
 
+  // let ret = await egsv_rtms.method("camera.list", {
+  //   "can": [
+  //     "view",
+  //     "update",
+  //     "delete",
+  //   ],
+  //   "include": [
+  //     "computed",
+  //     "account",
+  //     "server"
+  //   ],
+  //   "limit": 100000,
+  //   "sort": {
+  //     "name": "asc"
+  //   },
+  //   "filter": {
+  //     "_taxonomies": {
+  //       "$in": [ "66ebf363ac02e80330a6340a" ]
+  //     }
+  //   }
+  // });
+
+  // //console.log(ret.cameras[0]);
+  // //console.log(ret.cameras.length);
+
+  // ret.cameras = ret.cameras.sort((a,b) => strcmp(a.name,b.name));
+
+  // let unique_ip = {};
+  // let unique_group = {};
+  // let unique_group_name = {};
+
+  // let arr = [];
+  // for (const cam of ret.cameras) {
+  //   const host = new URL(cam.url).hostname.trim();
+  //   const group = cam.name.trim().split(".")[0].trim();
+  //   const type = cam.name.trim().split(".")[1].trim();
+  //   const group_name = cam.data.description.trim();
+  //   const egsv_id = cam.id;
+  //   const latlng_str = (cam.latlng[0] ? cam.latlng[0] + "," + cam.latlng[1] : "").trim();
+  //   const local_str = `${group} ${type} ${host} ${group_name} ${latlng_str}`;
+  //   //console.log(latlng_str);
+  //   //console.log(local_str);
+
+  //   arr.push({
+  //     group,
+  //     type,
+  //     host,
+  //     group_name,
+  //     latlng_str,
+  //     egsv_id
+  //   });
+
+  //   if (unique_ip[host]) {
+  //     console.log(`IP collision ${host}`);
+  //   }
+
+  //   if (unique_group[group] && unique_group[group] !== group_name) {
+  //     console.log(`Name mismatch ${group} ${group_name}`);
+  //   }
+
+  //   if (unique_group_name[group_name] && unique_group_name[group_name] !== group) {
+  //     console.log(`Group mismatch ${group_name} ${group}`);
+  //   }
+
+  //   if (!unique_ip[host]) unique_ip[host] = true;
+  //   if (!unique_group[group]) unique_group[group] = group_name;
+  //   if (!unique_group_name[group_name]) unique_group_name[group_name] = group;
+  // }
+
+  // let created_group = {};
+  // const start = 0;
+  // for (let i = start; i < arr.length; ++i) {
+  //   const data = arr[i];
+  //   const z_group_name = `${data.group} ${data.group_name}`;
+  //   if (!created_group[z_group_name]) {
+  //     const ret = await zabbix_aqt.method("hostgroup.create", { name: `ОВН/${z_group_name}` });
+  //     created_group[z_group_name] = ret.groupids[0];
+  //   }
+
+  //   if (!created_group[z_group_name]) {
+  //     throw `Could not find group ${z_group_name}`;
+  //   }
+
+  //   const short_group_name = data.group_name.substring(0, 20);
+
+  //   const ret = await zabbix_aqt.method("host.create", {
+  //     "host": `${data.group} ${data.type} ${data.host}`,
+  //     "name": `${data.group} ${data.type} ${data.host}`, // ${short_group_name} 
+  //     "interfaces": [
+  //       {
+  //         "type": 2,
+  //         "main": 1,
+  //         "useip": 1,
+  //         "ip": data.host,
+  //         "dns": "",
+  //         "port": "161",
+  //         "details": {
+  //           version: 2,
+  //           community: "public"
+  //         }
+  //       }
+  //     ],
+  //     "groups": [
+  //       {
+  //         "groupid": created_group[z_group_name]
+  //       }
+  //     ],
+  //     "tags": [
+  //       {
+  //         "tag": "type",
+  //         "value": data.type
+  //       },
+  //       {
+  //         "tag": "group",
+  //         "value": data.group
+  //       }
+  //     ],
+  //     "macros": [
+  //       {
+  //         "macro": "{$EGSVID}",
+  //         "value": data.egsv_id
+  //       },
+  //       {
+  //         "macro": "{$LATLNGSTR}",
+  //         "value": data.latlng_str
+  //       }
+  //     ]
+  //   });
+
+  //   console.log(i, ret);
+
+  //   //break;
+  // }
+
+  // const make_hikvision_str = function(address) {
+  //   return [
+  //     `rtsp://user:stream2024@${address}:554/Streaming/channels/101`,
+  //     `rtsp://user:stream2024@${address}:554/Streaming/channels/102`
+  //   ];
+  // }
+
+  // let arr = [ [ "name", "desc", "url1", "url2", "archive", "days", "", "group", "type", "folder" ] ];
+  // let excel = xlsx.parse("reparse2.xlsx");
+  // for (let i = 1; i < excel[0].data.length; ++i) {
+  //   const row = excel[0].data[i];
+  //   const type = row[2];
+  //   const name = row[3];
+  //   const phys_addr = row[4];
+  //   const group = row[1];
+  //   const groupid = row[8];
+  //   const addr = row[5];
+  //   const folder = row[6];
+
+  //   if (type === "router") continue;
+
+  //   const [ link1, link2 ] = make_hikvision_str(addr);
+  //   arr.push([ name, phys_addr, link1, link2, "true", 30, "", group, type, folder ]);
+  // }
+
+  // const buffer = xlsx.build([{ name: "лист", data: arr }]);
+  // fs.writeFileSync("egsv_data.xlsx", buffer);
+
+  // const ret = await zabbix_aqt.method("hostgroup.get", {
+  //   output: "extend",
+  //   search: {
+  //     name: [ "ОВН/" ]
+  //   }
+  // });
+
+  // //console.log(ret);
+  // let group_map_id = {};
+  // ret.forEach(el => {
+  //   const fname = el.name.split("/").slice(1).join("/").split(" ").slice(0, 1).join(" ");
+  //   group_map_id[fname] = el.groupid;
+  // });
+
+  // excel[0].data.forEach(row => {
+  //   if (!row[7] || row[7] === "group_name") { row.push("group_id"); return; }
+
+  //   const group = row[1];
+  //   const id = group_map_id[group];
+  //   const id_str =  ""+id;
+  //   row.push(id_str);
+  // });
+
+  // const buffer = xlsx.build(excel);
+  // fs.writeFileSync("reparse2.xlsx", buffer);
+
+  // const ignore = {
+  //   "OVN0009": true,
+  // };
+
+  // let excel = xlsx.parse("reparse2.xlsx");
+  // for (let i = 1049; i < excel[0].data.length; ++i) {
+  //   const row = excel[0].data[i];
+  //   if (row[8] !== "undefined") continue;
+  //   if (row[1] === "OVN07") continue;
+  //   if (row[2] !== "router") continue;
+  //   if (ignore[row[1]]) continue;
+
+  //   const group_name = "ОВН/"+row[7];
+  //   console.log(group_name);
+  //   const ret = await zabbix_aqt.method("hostgroup.create", { name: group_name });
+  //   row[7] = ret.groupids[0];
+  // }
+  // const buffer = xlsx.build(excel);
+  // fs.writeFileSync("reparse2.xlsx", buffer);
+
+  // const hostgroup_ret = await zabbix_aqt.method("hostgroup.get", {
+  //   output: "extend",
+  //   search: {
+  //     name: [ "ОВН/" ]
+  //   }
+  // });
+
+  // const hostgroups_id = hostgroup_ret.map(el => el.groupid);
+  // const host_ret = await zabbix_aqt.method("host.get", {
+  //   groupids: hostgroups_id,
+  //   output: "extend",
+  //   selectInterfaces: "extend", 
+  // });
+
+  // let arr = host_ret.map(el => {
+  //   const group = el.name.split(" ").slice(0, 1).join(" ");
+  //   let type = el.name.split(" ").slice(1, 2).join(" ");
+  //   if (type.startsWith("FIX")) type = "FIX";
+  //   const group_addr = el.name.split(" ").slice(2).join(" ");
+  //   return [ group, type, group_addr, el.interfaces[0].ip ];
+  // });
+  // arr.unshift([ "group", "type", "phys_addr", "addr" ]);
+
   let ret = await egsv_rtms.method("camera.list", {
     "can": [
       "view",
@@ -700,122 +931,127 @@ let xlsx_data = [
     },
     "filter": {
       "_taxonomies": {
-        "$in": [ "66ebf363ac02e80330a6340a" ]
+        $in: ['66ebf363ac02e80330a6340a', '672b0ca9177a0766a6bc8ebd', '673af1673bd57a9f74abd5b9', '678df1c5f3fe4b19014b5507', '679723ab0ad8f8dca0ee5191', '67a209f30ad8f8dca076a6d2', '6784dcf2d8c2d0cc93438f7d', '67a337b60ad8f8dca0c7bb03']
       }
     }
   });
 
-  //console.log(ret.cameras[0]);
-  //console.log(ret.cameras.length);
+  let arr = ret.cameras.map(el => {
+    const group = el.name.split(".").slice(0, 1).join(" ");
+    let type = el.name.split(".").slice(1, 2).join(" ");
+    if (type.startsWith("FIX")) type = "FIX";
+    const group_addr = el.data.description;
+    const ip = new URL(el.url).hostname;
+    //console.log([ group, type, group_addr, ip ]);
+    return [ group, type, group_addr, ip ];
+  });
+  arr.unshift([ "group", "type", "phys_addr", "addr" ]);
 
-  ret.cameras = ret.cameras.sort((a,b) => strcmp(a.name,b.name));
+  const buffer = xlsx.build([{ name: "list", data: arr }]);
+  fs.writeFileSync("2025.02.07 egsv_ovn_zabbix.xlsx", buffer);
 
-  let unique_ip = {};
-  let unique_group = {};
-  let unique_group_name = {};
+  // //console.log(host_ret[0]);
+  // let unique_host = {};
+  // host_ret.forEach(el => {
+  //   const name = el.host.split(" ").slice(0, -1).join(" ");
+  //   if (name === "") return;
+  //   if (unique_host[name]) {
+  //     //console.log(unique_host[name]+" collision "+el.host);
+  //     return;
+  //   }
 
-  let arr = [];
-  for (const cam of ret.cameras) {
-    const host = new URL(cam.url).hostname.trim();
-    const group = cam.name.trim().split(".")[0].trim();
-    const type = cam.name.trim().split(".")[1].trim();
-    const group_name = cam.data.description.trim();
-    const egsv_id = cam.id;
-    const latlng_str = (cam.latlng[0] ? cam.latlng[0] + "," + cam.latlng[1] : "").trim();
-    const local_str = `${group} ${type} ${host} ${group_name} ${latlng_str}`;
-    //console.log(latlng_str);
-    //console.log(local_str);
+  //   unique_host[name] = el.hostid;
+  // });
 
-    arr.push({
-      group,
-      type,
-      host,
-      group_name,
-      latlng_str,
-      egsv_id
-    });
+  // let excel = xlsx.parse("reparse2.xlsx");
+  // for (let i = 0; i < excel[0].data.length; ++i) {
+  //   const row = excel[0].data[i];
+  //   if (!row[7] || row[7] === "group_name") { row.push("host_id"); continue; }
 
-    if (unique_ip[host]) {
-      console.log(`IP collision ${host}`);
-    }
+  //   const find_host = row[3] || row[3] !== "" ? row[3].split(".").join(" ") : "";
+  //   const id = unique_host[find_host];
+  //   const id_str = ""+id;
+  //   excel[0].data[i].push(id_str);
+  // }
 
-    if (unique_group[group] && unique_group[group] !== group_name) {
-      console.log(`Name mismatch ${group} ${group_name}`);
-    }
+  // const buffer = xlsx.build(excel);
+  // fs.writeFileSync("reparse2.xlsx", buffer);
 
-    if (unique_group_name[group_name] && unique_group_name[group_name] !== group) {
-      console.log(`Group mismatch ${group_name} ${group}`);
-    }
+  // const human_groups = {
+  //   "2 этап - 240": 615,
+  //   "3 этап - 513": 682,
+  //   "4 этап - 215": 684,
+  //   "4 этап": 684,
+  //   "5 этап - 458": 1077,
+  //   "6 этап": 1078,
+  //   "6 этап - 641": 1078,
+  // };
 
-    if (!unique_ip[host]) unique_ip[host] = true;
-    if (!unique_group[group]) unique_group[group] = group_name;
-    if (!unique_group_name[group_name]) unique_group_name[group_name] = group;
-  }
+  // const ignore = {
+  //   "OVN0001": true,
+  //   "OVN0174": true,
+  //   "OVN0277": true,
+  //   "OVN0297": true,
+  //   "OVN0390": true,
+  //   "OVN07": true,
 
-  let created_group = {};
-  const start = 0;
-  for (let i = start; i < arr.length; ++i) {
-    const data = arr[i];
-    const z_group_name = `${data.group} ${data.group_name}`;
-    if (!created_group[z_group_name]) {
-      const ret = await zabbix_aqt.method("hostgroup.create", { name: `ОВН/${z_group_name}` });
-      created_group[z_group_name] = ret.groupids[0];
-    }
+  // };
+  // const excel = xlsx.parse("reparse2.xlsx");
+  // for (let i = 3005; i < excel[0].data.length; ++i) {
+  //   const row = excel[0].data[i];
+  //   if (!row[7] || row[7] === "host_id") continue;
+  //   if (ignore[row[1]]) continue;
+  //   const hostid = row[9];
+  //   if (hostid !== "undefined") continue;
 
-    if (!created_group[z_group_name]) {
-      throw `Could not find group ${z_group_name}`;
-    }
 
-    const short_group_name = data.group_name.substring(0, 20);
+  //   const type = row[2];
+  //   const group = row[1];
+  //   const groupid = row[8];
+  //   const addr = row[5];
+  //   const folder = row[6];
+  //   if (folder === "ДУБЛЬ") continue;
+  //   if (folder === "РУБЕЖ") continue;
 
-    const ret = await zabbix_aqt.method("host.create", {
-      "host": `${data.group} ${data.type} ${data.host}`,
-      "name": `${data.group} ${data.type} ${data.host}`, // ${short_group_name} 
-      "interfaces": [
-        {
-          "type": 2,
-          "main": 1,
-          "useip": 1,
-          "ip": data.host,
-          "dns": "",
-          "port": "161",
-          "details": {
-            version: 2,
-            community: "public"
-          }
-        }
-      ],
-      "groups": [
-        {
-          "groupid": created_group[z_group_name]
-        }
-      ],
-      "tags": [
-        {
-          "tag": "type",
-          "value": data.type
-        },
-        {
-          "tag": "group",
-          "value": data.group
-        }
-      ],
-      "macros": [
-        {
-          "macro": "{$EGSVID}",
-          "value": data.egsv_id
-        },
-        {
-          "macro": "{$LATLNGSTR}",
-          "value": data.latlng_str
-        }
-      ]
-    });
+  //   const human_groupid = human_groups[folder];
+  //   if (!human_groupid) throw `Could not find folder '${folder}' on line ${i}`;
 
-    console.log(i, ret);
+  //   const short_name = (!row[3] || row[3] === "" ? group + " ROUTER" : row[3].split(".").join(" "));
+  //   const zabbix_name = (short_name + " " + row[4]).slice(0, 120);
+  //   const zabbix_host = short_name + " " + row[5];
+  //   let groups = [ { "groupid": groupid }, { "groupid": 121 } ];
+  //   if (type !== "router") {
+  //     groups.push({ "groupid": human_groupid });
+  //   } else {
+  //     groups.push({ "groupid": 1080 });
+  //   }
 
-    //break;
-  }
+  //   console.log(i, zabbix_name);
+  //   const ret = await zabbix_aqt.method("host.create", {
+  //     "host": zabbix_host,
+  //     "name": zabbix_name,
+  //     "interfaces": [
+  //       {
+  //         "type": 2,
+  //         "main": 1,
+  //         "useip": 1,
+  //         "ip": addr,
+  //         "dns": "",
+  //         "port": "161",
+  //         "details": {
+  //           version: 2,
+  //           community: "public"
+  //         }
+  //       }
+  //     ],
+  //     "groups": groups,
+  //     "tags": [
+  //       { "tag": "type", "value": type },
+  //       { "tag": "group", "value": group }
+  //     ],
+  //     "templates": [
+  //       { "templateid": 10564 }
+  //     ]
+  //   });
+  // }
 })();
-
-// 

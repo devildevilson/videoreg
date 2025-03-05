@@ -4,7 +4,7 @@ const https = require("https");
 async function make_sane_post_request(self, url, data) {
   let resp = {};
   //try {
-    resp = await axios.post(url, data, { headers: self.headers });
+    resp = await axios.post(url, data, { headers: self.headers }); // , timeout: 300000
   // } catch (e) {
   //   if (e.code === "ERR_BAD_REQUEST") {
   //     //console.log(e);

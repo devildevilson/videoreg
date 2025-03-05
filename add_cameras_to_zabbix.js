@@ -68,7 +68,7 @@ const strcmp = (a,b) => (a < b ? -1 : +(a > b));
   });
 
   await egsv_rtms.auth();
-  await egsv_sko.auth();
+  //await egsv_sko.auth();
 
   let ret = await egsv_rtms.method("camera.list", {
     "can": [
@@ -87,7 +87,7 @@ const strcmp = (a,b) => (a < b ? -1 : +(a > b));
     },
     "filter": {
       "_taxonomies": {
-        "$in": [ "66ebf363ac02e80330a6340a", "67230a5a9f0170989401be1e", "67231ab79f01709894044734" ]
+        "$in": [ "66ebf363ac02e80330a6340a", "672b0ca9177a0766a6bc8ebd", "673af1673bd57a9f74abd5b9" ]
       }
     }
   });
@@ -96,13 +96,32 @@ const strcmp = (a,b) => (a < b ? -1 : +(a > b));
   //console.log(ret.cameras.length);
 
   ret.cameras = ret.cameras.sort((a,b) => strcmp(a.name,b.name));
+  // let cam_xlsx = [ [ "Группа", "Название", "Тип", "Адрес", "Ссылка", "Дата создания" ] ];
+  // for (const cam of ret.cameras) {
+  //   const g_name = cam.name.split(".")[0].trim();
+  //   const c_type = cam.name.split(".")[1].trim().slice(0,-1);
+  //   const date = "'"+cam.created_at.trim().split(".")[0].split("T").join(" ");
+
+  //   cam_xlsx.push([g_name, cam.name.trim(), c_type, cam.data.description.trim(), cam.url, date]);
+  // }
+  // const xlsx_cont = xlsx.build([{ name: "Камеры", data: cam_xlsx }]);
+  // fs.writeFileSync("cam_list.xlsx", xlsx_cont);
+  //return;
 
   // придется получить камеры из заббикса, сравнить их и уже потом добавлять
+  const zabbix_groups = await zabbix_aqt.method("hostgroup.get", {
+    output: "extend",
+    search: { name: "ОВН" }
+  });
+  const zabbix_groups_arr = zabbix_groups.map(val => val.groupid);
+
   const zabbix_cameras = await zabbix_aqt.method("host.get", {
     selectInterfaces: "extend",
-    groupids: [ 121 ]
+    groupids: zabbix_groups_arr // [ 44 ] // 121
   });
 
+  //console.log(zabbix_groups.length);
+  //console.log(zabbix_cameras.length);
   let cam_exists = {};
   for (const cam of zabbix_cameras) {
     const address = cam.interfaces[0].ip;
@@ -154,9 +173,15 @@ const strcmp = (a,b) => (a < b ? -1 : +(a > b));
     if (!unique_group_name[group_name]) unique_group_name[group_name] = group;
   }
 
-  const ignore_groups = {
-    "OVN0063 11 мкр. ул.Аз-наурыз д.27 ресторан Туран, кафе Арцах, Свежан": true,
+  //const d = await zabbix_aqt.method("host.get", { groupids: [ 479 ], selectParentTemplates: "extend" });
+  //console.log(d);
+  //console.log(d[0].parentTemplates);
 
+  //return;
+
+  const ignore_groups = {
+    "OVN0611 Остановка «Болашак» ул. Бокенбай-батыра": true,
+    "OVN0261 11 мкр. ул. Аз наурыз д. 49, 57 магазин Магнит": true,
   };
   let created_group = {};
   const start = 0;
@@ -165,7 +190,8 @@ const strcmp = (a,b) => (a < b ? -1 : +(a > b));
     const z_group_name = `${data.group} ${data.group_name}`;
     if (z_group_name.includes("OVN0000 ул.Бр.Жубановых д. 278")) continue;
     if (z_group_name.includes("OVN0000 ул.Макаренко двор д. 1 и д. 272 Бр.Жубановых")) continue;
-    //Oif (ignore_groups[z_group_name]) continue;
+    if (ignore_groups[z_group_name]) continue;
+    //console.log(z_group_name);
 
     if (!created_group[z_group_name]) {
       const group_name = `ОВН/${z_group_name}`;
@@ -184,12 +210,12 @@ const strcmp = (a,b) => (a < b ? -1 : +(a > b));
       throw `Could not find group ${z_group_name}`;
     }
 
-    const short_group_name = data.group_name.substring(0, 20);
+    const short_group_name = data.group_name.substring(0, 80);
 
     // сразу в шаблоны нужно добавить было
     const ret = await zabbix_aqt.method("host.create", {
       "host": `${data.group} ${data.type} ${data.host}`,
-      "name": `${data.group} ${data.type} ${data.host}`, // ${short_group_name} 
+      "name": `${data.group} ${data.type} ${short_group_name}`, // ${data.group_name} 
       "interfaces": [
         {
           "type": 2,
@@ -232,10 +258,15 @@ const strcmp = (a,b) => (a < b ? -1 : +(a > b));
           "macro": "{$LATLNGSTR}",
           "value": data.latlng_str
         }
+      ],
+      "templates": [
+        {
+          "templateid": 10564
+        }
       ]
     });
 
-    console.log(i, ret);
+    console.log(i, `${data.group} ${data.type} ${data.group_name}`);
 
     //break;
   }

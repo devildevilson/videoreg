@@ -7,13 +7,15 @@ const ipv4_bytes = ipv4_size / byte_size;
 
 function ip_to_num(str) {
   const nums = str.trim().split(".");
-  let counter = nums.length;
-  const num = nums.reduce((accumulator, val) => {
-    counter = Math.max(0, counter-1);
-    return accumulator | (parseInt(val) << counter * byte_size);
-  }, 0);
+  const ip_num = (parseInt(nums[0]) << 3 * byte_size) | (parseInt(nums[1]) << 2 * byte_size) | (parseInt(nums[2]) << 1 * byte_size) | (parseInt(nums[3]) << 0 * byte_size);
+  return ip_num;
+  // let counter = nums.length;
+  // const num = nums.reduce((accumulator, val) => {
+  //   counter = Math.max(0, counter-1);
+  //   return accumulator | (parseInt(val) << counter * byte_size);
+  // }, 0);
 
-  return num;
+  // return num;
 }
 
 function num_to_ip(num) {

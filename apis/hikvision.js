@@ -58,6 +58,10 @@ function convert_output(data, root_name) {
   return make_sane_output_data(JSON.parse(convert.xml2json(data, {compact: true, spaces: 2})), root_name);
 }
 
+function convert_output_raw(data) {
+  return JSON.parse(convert.xml2json(data, {compact: true, spaces: 2}));
+}
+
 async function make_sane_return(func) {
   // try {
   //   const data = await func();
@@ -396,6 +400,39 @@ hikvision.prototype.set_streaming_params = async function(channel_id, width, hei
 
   //console.log(ret.data);
   const data = ret.data ? convert_output(ret.data, "ResponseStatus") : undefined;
+  return { data, status: ret.status };
+};
+
+hikvision.prototype.method = async function(path, xml_data) {
+  const self = this;
+  const ret = await make_sane_return(async function() {
+    const httpsAgent = new https.Agent({ rejectUnauthorized: false });
+    const response = await self.digest_auth.request({
+      method: xml_data ? "PUT" : "GET",
+      url: self.BASEURI + path,
+      httpsAgent,
+      signal: AbortSignal.timeout(self.TIMEOUT),
+      timeout: self.TIMEOUT,
+      headers: xml_data ? { 'Content-Type': 'application/xml; charset="UTF-8"' } : undefined,
+      data: xml_data
+    });
+
+    if (typeof response.data === "string" && 
+       (response.data.indexOf("The requested URL was not found on this server") !== -1 || 
+        response.data.indexOf("404 File Not Found") !== -1)) {
+      throw { response: { status: 404, statusText: "File Not Found" } };
+    }
+
+    if (response.request.path !== path) {
+      throw { response: { status: 404, statusText: "Path Not Found" } };
+    }
+
+    //console.log(response);
+    return response.data;
+  });
+
+  //const data = ret.data ? convert_output_raw(ret.data) : undefined;
+  const data = ret.data;
   return { data, status: ret.status };
 };
 
